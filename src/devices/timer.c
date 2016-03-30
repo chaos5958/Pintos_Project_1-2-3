@@ -171,8 +171,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
   }
 
   wakeup_thread();
-
-  //thread_yield_timer();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
