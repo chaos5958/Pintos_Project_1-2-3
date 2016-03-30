@@ -30,6 +30,7 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to timer_sleep(),
@@ -95,10 +96,18 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct thread
+  int recent_cpu;
+  struct list_elem elem_cpu;
+
+static int load_avg;
+
 ---- ALGORITHMS ----
 >> C2: Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behavior of your scheduler?
+
+
 
 >> C3: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?

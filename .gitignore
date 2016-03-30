@@ -7,7 +7,7 @@ build/
 .bash_logout
 .gitconfig
 /.ssh
-*.txt
+
 /src/tags
 **/.vim/
 .vimrc
