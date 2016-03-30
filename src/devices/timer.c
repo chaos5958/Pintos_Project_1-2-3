@@ -166,11 +166,13 @@ timer_interrupt (struct intr_frame *args UNUSED)
       
       if (ticks % 4 == 0)
 	  update_priority_all();
+
+      thread_yield_timer();
   }
 
   wakeup_thread();
 
-  thread_yield_timer();
+  //thread_yield_timer();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
