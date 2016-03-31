@@ -96,21 +96,29 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-struct thread
-  int recent_cpu;
-  struct list_elem elem_cpu;
+In thread.h
 
-static int load_avg;
+struct thread
+  int recent_cpu;               //The thread's recent_cpu value, which is a measurement of how much CPU time the thread has received recently.
+  struct list_elem elem_cpu;    //struct list_elem, which is used to add the thread to remain_list
+
+In thread.c
+
+static struct list remain_list; //The list that keep track of all threads except idle_thread; Used to calculate recent_cpu and priority values of all threads at designated timer ticks.
+
+static int load_avg;            //Load_avg value, which estimates the average number of thrads ready to run over the past minute.
 
 ---- ALGORITHMS ----
 >> C2: Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behavior of your scheduler?
 
-
+Yes. If multiple threads have same priority, the scheduler schedules the frontmost thread in the ready queue to run, which is the thread that has been run least recently.
 
 >> C3: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
+
+Most of the computation needs to be done within the interrupt handler, since the computation needs to be done at exact time. Incrementing the recent_cpu value and updating the priority of current thread does not take very much time, but updating recent_cpu and load_avg every second, which is calculated over all threads, may affect performance. Other than calculating ticks, priority, recent_cpu, load_avg, and waking up threads are not included in timer interrupt to minimize time spent in timer_interrupt. 
 
 ---- RATIONALE ----
 
@@ -119,12 +127,20 @@ static int load_avg;
 >> time to work on this part of the project, how might you choose to
 >> refine or improve your design?
 
+Advantages:
+- Simple, since we didn't lock the thread variables.
+- Using macros for fixed-point math makes calculations faster, and using <<(bitwise calculation) with the macros declared for how many bits are representing the fraction, makes it easy to control the location of floating point in fixed-point real arithmatic.
+Disadvantages:
+- Less performance due to turning off interrupts instead of locking the thraed variables.
+
 >> C5: The assignment explains arithmetic for fixed-point math in
 >> detail, but it leaves it open to you to implement it.  Why did you
 >> decide to implement it the way you did?  If you created an
 >> abstraction layer for fixed-point math, that is, an abstract data
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
+
+The floating data is declared as int32_t, and its calculation is done by macros. Using macros minimized the time used for calculation. The macros are defined in thread.h, since the calculation is done in functions located in thread.c.
 
 			   SURVEY QUESTIONS
 			   ================
