@@ -238,7 +238,6 @@ strtok_r (char *s, const char *delimiters, char **save_ptr)
   
   ASSERT (delimiters != NULL);
   ASSERT (save_ptr != NULL);
-
   /* If S is nonnull, start from it.
      If S is null, start from saved position. */
   if (s == NULL)

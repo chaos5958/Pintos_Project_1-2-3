@@ -8,6 +8,7 @@
 #include "threads/vaddr.h"
 
 typedef int pid_t;
+static struct lock file_lock;
 
 static void syscall_handler (struct intr_frame *);
 
@@ -30,6 +31,7 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init(&file_lock);
 }
 
 static void
@@ -165,24 +167,26 @@ exit (int status)
     //if parent waits(exists)
     if (t->parent != NULL){
     //give status to parent
-      t->parent->ret_status = status;
       t->parent->ret_valid = true;
     }
+    t->ret_status = status;
     thread_exit();
 }
 
 static pid_t
 exec (const char *file)
 {
-    printf("halt\n");
-    return 0;
+    tid_t tid;
+    lock_acquire(&file_lock);
+    tid = process_execute(file);
+    lock_release(&file_lock);
+    return (pid_t)tid;
 }
 
 static int
 wait (pid_t pid)
 {
-    printf("wait\n");
-    return 0;
+    return process_wait((tid_t)pid);
 }
 
 static bool

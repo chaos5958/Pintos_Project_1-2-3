@@ -336,9 +336,8 @@ thread_exit (void)
      We will be destroyed during the call to schedule_tail(). */
   intr_disable ();
   
-  //team10 In advanced scheduler, removes elem_cpu of struct thread when thread dies
-  if (thread_mlfqs)
-  	list_remove(&thread_current ()->elem_cpu);
+  //team10 In advanced scheduler, removes elem_cpu of struct thread when thread dies / also used for user programs, since remain_list is used for user programs also.
+  list_remove(&thread_current ()->elem_cpu);
 
   thread_current ()->status = THREAD_DYING;
   
@@ -871,6 +870,7 @@ struct thread* is_valid_tid (tid_t tid)
     for (el = list_begin (&remain_list); el != list_end (&remain_list); el = list_next (el))
     {
 	t = list_entry (el, struct thread, elem_cpu);
+	//printf("IS_VALID_TID FOR %s\n", t->name);
 	if (tid == t->tid)
 	    return t;
     }
