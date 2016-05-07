@@ -117,7 +117,7 @@ bool load_page (struct page* pg)
 			  return false;
 		      }
 		      memset (fr->paddr + pg->read_bytes, 0, pg->zero_bytes);
-		      if (!install_page (pg->vaddr, (fr->paddr), pg->is_writable))
+		      if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
 		      {
 			  free_frame (fr);
 			  return false;
@@ -126,7 +126,14 @@ bool load_page (struct page* pg)
 
 	case IN_SWAP:
 		      break;
-	case IN_MEM:
+	case IN_MEM:  memset (fr->paddr, 0, PGSIZE);
+		       if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
+		      {
+			  free_frame (fr);
+			  return false;
+		      }	
+		      
+		      return true;
 		      break;
     }    
 
