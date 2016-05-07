@@ -8,6 +8,7 @@
 //team 10
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -154,7 +155,17 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
   if (not_present)
-      exit_ext (-1);
+  {
+      struct page* pg;
+      fault_addr = pg_round_down (fault_addr);
+      if ((pg = find_page (fault_addr)) == NULL)
+	  exit_ext (-1);
+      else
+      {
+	  if (!load_page (pg))
+	      exit_ext (-1);
+      }
+  }
 
   if (!is_user_vaddr (fault_addr) && user)
       exit_ext (-1);
@@ -163,11 +174,11 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+  /*printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  kill (f);
+  kill (f);*/
 }
 

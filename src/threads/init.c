@@ -20,6 +20,7 @@
 #include "threads/palloc.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
+#include "vm/frame.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/exception.h"
@@ -34,6 +35,7 @@
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
 #endif
+
 
 /* Amount of physical memory, in 4 kB pages. */
 size_t ram_pages;
@@ -87,6 +89,9 @@ main (void)
   palloc_init ();
   malloc_init ();
   paging_init ();
+
+  /*team10 Initialize frame*/
+  frame_init ();
 
   /* Segmentation. */
 #ifdef USERPROG

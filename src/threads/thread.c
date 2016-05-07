@@ -658,7 +658,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->target_lock = NULL;
   list_init(&(t->lock_list));
   t->nice = NICE_DEFAULT;
-  t->recent_cpu = 0; 
+  t->recent_cpu = 0;
+
+  // team10: proj 3 
+  lock_init (&t->page_lock); 
 
   // team10: proj 2
 #ifdef USERPROG
@@ -669,6 +672,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->parent = NULL;
   t->ret_valid = false;
   t->past_exit = false;
+
+  //project 3
+  list_init (&(t->page_table));
 #endif 
 }
 
