@@ -7,9 +7,10 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 #include <string.h>
-
+#include "threads/synch.h"
 #include "userprog/syscall.h"
 #include "threads/palloc.h"
+#include "vm/swap.h"
 /*
 enum location{
     IN_MEM,
@@ -42,6 +43,13 @@ void init_page (struct page*)
     page->ofs = 0;
 }
 */
+struct lock page_lock;
+
+void init_page (void)
+{
+    lock_init (&page_lock);
+}
+
 
 struct page* find_page (void* vaddr_)
 {
@@ -84,15 +92,14 @@ bool add_file_to_page (uint8_t* vaddr_, void* save_addr_, bool is_writable_, uin
     return true;
 }
 
-bool add_mem_to_page (void* vaddr_, void* save_addr_, bool is_writable_)
+bool add_new_page (void* vaddr_, bool is_writable_)
 {
     struct page* pg = (struct page*) malloc (sizeof (struct page));
     if (pg == NULL)
 	return false;
     struct thread* curr = thread_current ();
     pg->vaddr = vaddr_; 
-    pg->save_addr = save_addr_;
-    pg->save_location = IN_MEM;
+    pg->save_location = NONE;
     pg->is_writable = is_writable_;
 
     list_push_back (&curr->page_table, &pg->page_elem);
@@ -101,48 +108,100 @@ bool add_mem_to_page (void* vaddr_, void* save_addr_, bool is_writable_)
 
 bool load_page (struct page* pg)
 {
-    struct frame* fr = alloc_frame (pg->vaddr);
-    if (fr == NULL)
-    {
-	printf ("===frame fail===");
-	free_frame (fr);
-	return false;
-    }
-    
     switch (pg->save_location)
     {
-	case IN_FILE: if (file_read_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs) != (int) pg->read_bytes)
-
-		      {
-			  free_frame (fr);
+	case IN_FILE: if (!load_page_file (pg))
 			  return false;
-		      }
-		      memset (fr->paddr + pg->read_bytes, 0, pg->zero_bytes);
-		      if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
-		      {
-			  free_frame (fr);
-			  return false;
-		      }	      			       
 		      break;
 
-	case IN_SWAP:
-		      break;
-	case IN_MEM:  memset (fr->paddr, 0, PGSIZE);
-		       if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
-		      {
-			  printf ("===install fail===");
-			  free_frame (fr);
+	case IN_SWAP: if (!load_page_swap (pg))
 			  return false;
-		      }	
-		      
-		      return true;
+		      break;
+	
+	case NONE:  if (!load_page_none (pg))
+			  return false;
 		      break;
     }    
 
-    free_frame (fr);
     return true;
 }
 
+bool load_page_file (struct page* pg)
+{
+    struct frame* fr = alloc_frame (pg->vaddr);
+    
+    if (fr == NULL)
+    {
+	free_frame (fr);
+	return false;
+    }
+
+    lock_acquire (&page_lock);
+    if (file_read_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs) != (int) pg->read_bytes)
+    {
+	lock_release (&page_lock);
+	free_frame (fr);
+	return false;
+    }
+
+    lock_release (&page_lock);
+    
+    memset (fr->paddr + pg->read_bytes, 0, pg->zero_bytes);
+
+    if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
+    {
+	free_frame (fr);
+	return false;
+    }
+
+    return true;
+}
+
+bool load_page_swap (struct page* pg)
+{
+    struct frame* fr = alloc_frame (pg->vaddr);
+    
+    if (fr == NULL)
+    {
+	free_frame (fr);
+	return false;
+    }
+
+    if (!swap_read (pg->page_idx, fr->paddr))
+    {
+	free_frame (fr);
+	return false;
+    }
+
+    if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
+    {
+	free_frame (fr);
+	return false;
+    }
+
+    return true;
+}
+
+bool load_page_none (struct page* pg)
+{
+    struct frame* fr = alloc_frame (pg->vaddr);
+    
+    if (fr == NULL)
+    {
+	free_frame (fr);
+	return false;
+    }
+
+    memset (fr->paddr, 0, PGSIZE);
+
+    if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
+    {
+	free_frame (fr);
+	return false;
+    }	
+
+    return true;
+}
 
 void free_page (struct page* pg)
 {

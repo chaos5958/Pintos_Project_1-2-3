@@ -7,9 +7,9 @@
 #include "filesys/file.h"
 
 enum location{
-    IN_MEM,
+    IN_SWAP,
     IN_FILE,
-    IN_SWAP
+    NONE
 };
 
 struct page{
@@ -23,6 +23,9 @@ struct page{
     size_t zero_bytes;
     off_t ofs;
 
+    //for swap
+    size_t page_idx;
+
     //page table list element
     struct list_elem page_elem;
 };
@@ -30,10 +33,14 @@ struct page{
 //void init_page (struct page*);
 
 struct page* find_page (void*);
+void init_page (void);
 bool add_file_to_page (uint8_t*, void*, bool, size_t, size_t, off_t);
-bool add_mem_to_page (void*, void*, bool);
+bool add_new_page (void*, bool);
 bool load_page (struct page*);
 void free_page (struct page*);
 void free_page_table (struct list*);
+bool load_page_file (struct page*);
+bool load_page_swap (struct page*);
+bool load_page_none (struct page*);
 
 #endif
