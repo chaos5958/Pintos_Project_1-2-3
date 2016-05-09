@@ -4,6 +4,8 @@
 #include "vm/page.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "vm/swap.h"
+#include "userprog/pagedir.h"
 
 /*
 struct frame{
