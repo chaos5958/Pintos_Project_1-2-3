@@ -302,8 +302,10 @@ read (int fd, void *buffer, unsigned size)
     struct file_fd* file_fd; 
     struct list_elem* el;
      
-    if (buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer))
-    	exit (-1);
+    if (buffer == NULL || !is_user_vaddr (buffer + size)) 
+  //|| !pagedir_get_page (thread_current ()->pagedir, buffer + size))  
+	exit (-1);
+
 
     lock_acquire (&file_lock);
     if (fd == STDIN_FILENO)
@@ -349,9 +351,10 @@ write (int fd, const void *buffer, unsigned size)
     struct file_fd* file_fd; 
     struct list_elem* el;
         
-    if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size)) {
+    if(buffer == NULL || !is_user_vaddr (buffer + size))
+	    //|| !pagedir_get_page (thread_current ()->pagedir, buffer + size)) {
       	  exit (-1);
-    }
+   
 
     if (fd == 1) {
 	putbuf (buffer, size);
