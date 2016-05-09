@@ -104,6 +104,7 @@ bool load_page (struct page* pg)
     struct frame* fr = alloc_frame (pg->vaddr);
     if (fr == NULL)
     {
+	printf ("===frame fail===");
 	free_frame (fr);
 	return false;
     }
@@ -129,6 +130,7 @@ bool load_page (struct page* pg)
 	case IN_MEM:  memset (fr->paddr, 0, PGSIZE);
 		       if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
 		      {
+			  printf ("===install fail===");
 			  free_frame (fr);
 			  return false;
 		      }	

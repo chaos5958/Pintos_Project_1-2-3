@@ -36,11 +36,13 @@ struct frame* alloc_frame (uint8_t* uaddr)
     if (fr == NULL)
 	return NULL;
 
+    printf("frame get success");
     fr->paddr = palloc_get_page (PAL_USER);
 
     if (fr->paddr == NULL)
 	return NULL;
 
+    printf("paddr get success");
     struct thread* curr = thread_current ();
     fr->user = curr; 
     fr->vaddr = uaddr; 
