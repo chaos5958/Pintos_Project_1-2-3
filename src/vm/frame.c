@@ -4,6 +4,8 @@
 #include "vm/page.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "vm/swap.h"
+#include "userprog/pagedir.h"
 
 /*
 struct frame{
@@ -20,6 +22,7 @@ struct frame* alloc_frame (void*);
 void free_frame (struct frame*);
 void free_frame_table (struct frame*);
 */
+void dump_frame (struct frame*, bool);
 
 struct list frame_table;
 struct lock frame_lock;
@@ -59,3 +62,55 @@ void free_frame (struct frame* fr)
     //free (fr);
 }
 
+//team10: find frame to evict, and call dump_frame() to actually evict
+void evict_frame(void)
+{
+  struct list_elem *el, *popel;
+  struct frame *fr = NULL;
+  bool dirty, accessed;
+
+  int k;
+  for (k = 0; k < 2; k++){
+
+    for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next(el)){ //traverse list to find unreferenced and unchanged frame
+      fr = list_entry (el, struct frame, frame_elem);
+
+      dirty = pagedir_is_dirty(fr->user->pagedir, fr->vaddr);
+      accessed = pagedir_is_accessed(fr->user->pagedir, fr->vaddr);
+      if ((accessed == false) && (dirty == false)){
+        dump_frame(fr, dirty);
+        return;
+      }
+    }
+
+      for (el = list_begin (&frame_table); el != list_end (&frame_table); ){ //traverse list to find unreferenced but changed frame
+      fr = list_entry (el, struct frame, frame_elem);
+
+      dirty = pagedir_is_dirty(fr->user->pagedir, fr->vaddr);
+      accessed = pagedir_is_accessed(fr->user->pagedir, fr->vaddr);
+      if ((accessed == false) && (dirty == true)){
+        dump_frame(fr, dirty);
+        return;
+      }
+      if (accessed == true){
+        pagedir_set_accessed (fr->user->pagedir, fr->vaddr, false);
+	popel = el;
+        el = list_remove (popel);
+	list_push_back (&frame_table, popel);
+      }
+    }
+  }
+}    
+
+//team10: actually evict frame
+void dump_frame (struct frame* fr, bool dirty)
+{
+  if (dirty){//if dirty, write to swap
+    lock_acquire(&frame_lock);
+    swap_write(fr);
+    lock_release(&frame_lock);
+  }
+  //regain page
+  pagedir_clear_page(fr->user->pagedir, fr->vaddr);
+  alloc_frame(fr->vaddr);
+}
