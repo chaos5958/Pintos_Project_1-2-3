@@ -50,30 +50,24 @@ size_t swap_write (void* frame)
     return page_idx;
 }
 
-void* swap_read (size_t page_idx)
+bool swap_read (size_t page_idx, void* frame)
 {
-    void* frame;
     size_t i;
 
     lock_acquire (&mem_swap.lock);
     if (!bitmap_contains (mem_swap.used_map, page_idx, PAGE_DISK_SECTOR - 1, true))
     {
 	lock_release (&mem_swap.lock);
-	PANIC ("Swap space: Unexpected empty");
+	return false;
     }
     lock_release (&mem_swap.lock);
-
-    frame = malloc (PGSIZE);
-
-    if (frame == NULL)
-	PANIC ("Swap space: Malloc fail");
 
     for (i = page_idx; i < page_idx + PAGE_DISK_SECTOR; i++)
     {
 	disk_read (mem_swap.disk, page_idx, frame + PAGE_DISK_SECTOR * (i - page_idx));
     }
 
-    return frame;
+    return true;
 }
 
 
