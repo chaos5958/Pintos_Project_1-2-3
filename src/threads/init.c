@@ -21,6 +21,8 @@
 #include "threads/pte.h"
 #include "threads/thread.h"
 #include "vm/frame.h"
+#include "vm/page.h"
+#include "vm/swap.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/exception.h"
@@ -92,6 +94,7 @@ main (void)
 
   /*team10 Initialize frame*/
   frame_init ();
+  init_page ();
 
   /* Segmentation. */
 #ifdef USERPROG
@@ -120,6 +123,7 @@ main (void)
   filesys_init (format_filesys);
 #endif
 
+  init_swap ();
   printf ("Boot complete.\n");
   
   /* Run actions specified on kernel command line. */

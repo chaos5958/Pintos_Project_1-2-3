@@ -160,62 +160,49 @@ page_fault (struct intr_frame *f)
       fault_addr = pg_round_down (fault_addr);
       if ((pg = find_page (fault_addr)) == NULL)
       {
-	  //printf ("==find page fail==\n");
+	  printf ("==find page fail==\n");
 	  
-	  //if (user && (int) f->esp > (int) fault_addr && (int) fault_addr >= (int) f->esp - PGSIZE)
-          if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - (1<<22))
+	  //Stack
+          if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
 	  {
-	      int esp_off = (f->esp - fault_addr) / PGSIZE;
-	      //printf ("esp_off: %d\n", esp_off);
-	      //printf ("falut_addr: %0xd, esp: %0xd, es-PGSIZE: %0xd\n", fault_addr, f->esp, fault_addr - f->esp);
-	      //printf ("PHYS_BASE - esp_off*PGS: %0xd\n", f->esp - fault_addr);
-
-
-	      if (f->esp - PGSIZE < PHYS_BASE - (1<<22))
+	      if (!add_new_page (fault_addr, true))
 		  exit_ext (-1);
-	      //printf ("==stack increase start==\n");
+
+	      pg = find_page (fault_addr);
+
+	      if (!load_page (pg))
+		  exit_ext (-1);
+	      /*
+	      int esp_off = (f->esp - fault_addr) / PGSIZE;
+	      printf ("esp_off: %d\n", esp_off);
+	      printf ("falut_addr: %0xd, esp: %0xd, es-PGSIZE: %0xd\n", fault_addr, f->esp, fault_addr - f->esp);
+	      printf ("PHYS_BASE - esp_off*PGS: %0xd\n", f->esp - fault_addr);
+
+
+	      if (f->esp - PGSIZE < PHYS_BASE - (1<<23))
+		  exit_ext (-1);
+	     printf ("==stack increase start==\n");
 	      if (!add_mem_to_page (fault_addr, NULL, true))
 		  exit_ext (-1);
 
 	      pg = find_page (fault_addr);
-	      //printf ("==page found==\n"); 
+	      printf ("==page found==\n"); 
 	      if (!load_page (pg))
 		  exit_ext (-1);
-	      //printf ("==stack increase success==\n");
+	      printf ("==stack increase success==\n");
 	      //f->esp = fault_addr;
+	      */
 	  }
+	  //Non-stack part
 	  else 
 	      exit_ext (-1);
-	  /*
-	  else
-	  {
-	      int esp_off = (fault_addr - f->esp) / PGSIZE;
-	      //printf ("esp_off: %d\n", esp_off);
-	      //printf ("falut_addr: %0xd, esp: %0xd, es-PGSIZE: %0xd\n", fault_addr, f->esp, fault_addr - f->esp);
-	      //printf ("PHYS_BASE - esp_off*PGS: %0xd\n", (int)fault_addr - (int)esp_off);
-	      if (fault_addr < PHYS_BASE - esp_off * PGSIZE && fault_addr > f->esp)
-	      {
-		  if (!add_mem_to_page (fault_addr, NULL, true))
-		      exit_ext (-1);
-
-		  pg = find_page (fault_addr);
-		  //printf ("==page found==\n"); 
-		  if (!load_page (pg))
-		      exit_ext (-1);
-		  //printf ("==stack increase success==\n");
-	      }
-	      else
-	      {
-	      //printf ("stack increase fail\n");
-	      exit_ext (-1);
-	      }
-	  }*/ 
-	  
       }
       else
       {
+	  printf("===page exist===");
 	  if (!load_page (pg))
 	      exit_ext (-1);
+	  printf("===load success===");
       }
   }
 
@@ -226,11 +213,11 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  /*printf ("Page fault at %p: %s error %s page in %s context.\n",
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  kill (f);*/
+  //kill (f);
 }
 

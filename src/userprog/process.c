@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "vm/page.h"
+#include "userprog/syscall.h"
 // team10 
 #include "threads/malloc.h"
 
