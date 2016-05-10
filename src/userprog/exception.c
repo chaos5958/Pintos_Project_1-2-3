@@ -148,12 +148,12 @@ page_fault (struct intr_frame *f)
   /* Count page faults. */
   page_fault_cnt++;
 
-
   /* Determine cause. */
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
- printf ("Page fault at %p: %s error %s page in %s context.\n",
+  
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
@@ -163,26 +163,28 @@ page_fault (struct intr_frame *f)
   {
       struct page* pg;
       fault_addr = pg_round_down (fault_addr);
-      printf ("=====fault addr: %d=====\n", fault_addr);
 
       if ((pg = find_page (fault_addr)) == NULL)
       {
-	   printf ("==find page fail: %0xd==\n", fault_addr);
-	  
 	  //Stack
+	   printf ("stack\n");
            if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
 	   {
-	      printf ("==stack==\n");
+	       printf ("stack size grow\n");
+	       printf ("current addr: %p", PHYS_BASE - fault_addr);
+	      //fault_addr = pg_round_down (fault_addr);
+
+	      //printf ("==stack==\n");
 	      if (!add_new_page (fault_addr, true))
 		  exit_ext (-1);
 
-	      printf ("==add==\n");
+	      //printf ("==add==\n");
 	      pg = find_page (fault_addr);
 
 	      if (!load_page (pg))
 		  exit_ext (-1);
 	      
-	      printf ("==load==\n");
+	      //printf ("==load==\n");
 	      /*
 	      int esp_off = (f->esp - fault_addr) / PGSIZE;
 	      printf ("esp_off: %d\n", esp_off);
@@ -210,10 +212,8 @@ page_fault (struct intr_frame *f)
       }
       else
       {
-	  printf("===page exist===");
 	  if (!load_page (pg))
 	      exit_ext (-1);
-	  //printf("===load success===");
       }
   }
 

@@ -88,13 +88,15 @@ bool add_file_to_page (uint8_t* vaddr_, void* save_addr_, bool is_writable_, uin
     pg->zero_bytes = zero_bytes_;
     pg->ofs = ofs_;
 
+    printf ("page entry num: %zu", list_size (&curr->page_table));
+    
     list_push_back (&curr->page_table, &pg->page_elem);
     return true;
 }
 
 bool add_new_page (void* vaddr_, bool is_writable_)
 {
-    printf ("========add page=========\n");
+    
     struct page* pg = (struct page*) malloc (sizeof (struct page));
     if (pg == NULL)
 	return false;
@@ -103,12 +105,15 @@ bool add_new_page (void* vaddr_, bool is_writable_)
     pg->save_location = NONE;
     pg->is_writable = is_writable_;
 
+    printf ("page entry num: %zu", list_size (&curr->page_table));
+    
     list_push_back (&curr->page_table, &pg->page_elem);
     return true;
 }
 
 bool load_page (struct page* pg)
 {
+    printf ("save: location: %d\n", pg->save_location);
     switch (pg->save_location)
     {
 	case IN_FILE: if (!load_page_file (pg))
@@ -137,17 +142,24 @@ bool load_page_file (struct page* pg)
 	return false;
     }
 
-    lock_acquire (&page_lock);
-    if (file_read_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs) != (int) pg->read_bytes)
+    if (fr->paddr == NULL)
+	PANIC ("frame paddr null");
+
+    if (pg->read_bytes > 0)
     {
+	lock_acquire (&page_lock);
+	if (file_read_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs) != (int) pg->read_bytes)
+	{
+	    lock_release (&page_lock);
+	    free_frame (fr);
+	    return false;
+	}
+
 	lock_release (&page_lock);
-	free_frame (fr);
-	return false;
     }
 
-    lock_release (&page_lock);
-    
-    memset (fr->paddr + pg->read_bytes, 0, pg->zero_bytes);
+    if (pg->zero_bytes != 0)
+	memset (fr->paddr + pg->read_bytes, 0, pg->zero_bytes);
 
     if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
     {
@@ -160,7 +172,6 @@ bool load_page_file (struct page* pg)
 
 bool load_page_swap (struct page* pg)
 {
-    printf ("===load from swap===\n");
     struct frame* fr = alloc_frame (pg->vaddr);
     
     if (fr == NULL)
@@ -169,13 +180,22 @@ bool load_page_swap (struct page* pg)
 	return false;
     }
 
+    /*
     if (!swap_read (pg->page_idx, fr->paddr))
     {
 	free_frame (fr);
 	return false;
     }
+    */
 
     if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
+    {
+	free_frame (fr);
+	return false;
+    }
+
+
+    if (!swap_read (pg->page_idx, fr->paddr))
     {
 	free_frame (fr);
 	return false;
@@ -194,14 +214,17 @@ bool load_page_none (struct page* pg)
 	return false;
     }
 
-    memset (fr->paddr, 0, PGSIZE);
+    //memset (fr->paddr, 0, PGSIZE);
 
     if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
     {
 	free_frame (fr);
 	return false;
     }	
+ 
+    memset (fr->paddr, 0, PGSIZE);
 
+    pg->save_location = IN_SWAP;
     return true;
 }
 
