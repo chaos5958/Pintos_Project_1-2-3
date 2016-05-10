@@ -44,7 +44,7 @@ size_t swap_write (void* frame)
     
     for (i = page_idx; i < page_idx + PAGE_DISK_SECTOR; i++)
     {
-	disk_write (mem_swap.disk, page_idx + i, frame + PAGE_DISK_SECTOR * (i - page_idx));
+	disk_write (mem_swap.disk, i, frame + DISK_SECTOR_SIZE * (i - page_idx));
     }
 
     return page_idx;
@@ -66,18 +66,10 @@ bool swap_read (size_t page_idx, void* frame)
     printf ("swap read 1\n");
     for (i = page_idx; i < page_idx + PAGE_DISK_SECTOR; i++)
     {
-	disk_read (mem_swap.disk, page_idx + i, frame + PAGE_DISK_SECTOR * (i - page_idx));
+	disk_read (mem_swap.disk, i, frame + DISK_SECTOR_SIZE * (i - page_idx));
     }
     printf ("swap read 2\n");
     printf ("frame: %p", frame);
 
     return true;
 }
-
-
-
-    
-
-
-
-
