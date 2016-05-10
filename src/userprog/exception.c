@@ -152,13 +152,13 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-  
+ /* 
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  
+  */
   if (not_present)
   {
       struct page* pg;
@@ -167,11 +167,11 @@ page_fault (struct intr_frame *f)
       if ((pg = find_page (fault_addr)) == NULL)
       {
 	  //Stack
-	   printf ("stack\n");
+	  // printf ("stack\n");
            if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
 	   {
-	       printf ("stack size grow\n");
-	       printf ("current addr: %p", PHYS_BASE - fault_addr);
+	       //printf ("stack size grow\n");
+	       //printf ("current addr: %p", PHYS_BASE - fault_addr);
 	      //fault_addr = pg_round_down (fault_addr);
 
 	      //printf ("==stack==\n");

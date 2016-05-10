@@ -99,7 +99,6 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
 bool
 pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
 { 
-    printf ("upage: %p, kpage: %p=======\n", upage, kpage); 
     struct page* pg;
     uint32_t *pte;
 
@@ -109,11 +108,6 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
     ASSERT (vtop (kpage) >> PTSHIFT < ram_pages);
     ASSERT (pd != base_page_dir);
 
-    if ((pg = find_page (upage)) == NULL)
-    {
-	if (!add_new_page (upage, writable))
-	    PANIC ("cannot add new page");
-    }
     pte = lookup_page (pd, upage, true);
 
     if (pte != NULL) 

@@ -88,7 +88,7 @@ bool add_file_to_page (uint8_t* vaddr_, void* save_addr_, bool is_writable_, uin
     pg->zero_bytes = zero_bytes_;
     pg->ofs = ofs_;
 
-    printf ("page entry num: %zu", list_size (&curr->page_table));
+    //printf ("page entry num: %zu", list_size (&curr->page_table));
     
     list_push_back (&curr->page_table, &pg->page_elem);
     return true;
@@ -105,7 +105,7 @@ bool add_new_page (void* vaddr_, bool is_writable_)
     pg->save_location = NONE;
     pg->is_writable = is_writable_;
 
-    printf ("page entry num: %zu", list_size (&curr->page_table));
+    //printf ("page entry num: %zu", list_size (&curr->page_table));
     
     list_push_back (&curr->page_table, &pg->page_elem);
     return true;
@@ -113,7 +113,6 @@ bool add_new_page (void* vaddr_, bool is_writable_)
 
 bool load_page (struct page* pg)
 {
-    printf ("save: location: %d\n", pg->save_location);
     switch (pg->save_location)
     {
 	case IN_FILE: if (!load_page_file (pg))
@@ -134,6 +133,7 @@ bool load_page (struct page* pg)
 
 bool load_page_file (struct page* pg)
 {
+    //printf ("===file===\n");
     struct frame* fr = alloc_frame (pg->vaddr);
     
     if (fr == NULL)
@@ -172,6 +172,7 @@ bool load_page_file (struct page* pg)
 
 bool load_page_swap (struct page* pg)
 {
+    //printf ("===swap read===\n");
     struct frame* fr = alloc_frame (pg->vaddr);
     
     if (fr == NULL)
@@ -188,18 +189,22 @@ bool load_page_swap (struct page* pg)
     }
     */
 
+   
     if (!install_page (pg->vaddr, fr->paddr, pg->is_writable))
     {
 	free_frame (fr);
 	return false;
     }
 
-
+   
     if (!swap_read (pg->page_idx, fr->paddr))
     {
 	free_frame (fr);
 	return false;
     }
+    
+
+    //printf ("swap_read: %zu\n", pg->page_idx);
 
     return true;
 }
