@@ -52,7 +52,7 @@ size_t swap_write (void* frame)
 
 bool swap_read (size_t page_idx, void* frame)
 {
-    printf ("swap read call\n");
+    //printf ("swap read call\n");
     size_t i;
 
     lock_acquire (&mem_swap.lock);
@@ -63,13 +63,15 @@ bool swap_read (size_t page_idx, void* frame)
     }
     lock_release (&mem_swap.lock);
 
-    printf ("swap read 1\n");
+    //printf ("swap read 1\n");
     for (i = page_idx; i < page_idx + PAGE_DISK_SECTOR; i++)
     {
 	disk_read (mem_swap.disk, i, frame + DISK_SECTOR_SIZE * (i - page_idx));
     }
-    printf ("swap read 2\n");
-    printf ("frame: %p", frame);
+
+    bitmap_set_multiple (mem_swap.used_map, page_idx, PAGE_DISK_SECTOR, false);
+    //printf ("swap read 2\n");
+    //printf ("frame: %p", frame);
 
     return true;
 }

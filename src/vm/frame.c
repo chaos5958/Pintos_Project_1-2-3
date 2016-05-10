@@ -58,6 +58,8 @@ struct frame* alloc_frame (uint8_t* uaddr)
     fr->user = curr; 
     fr->vaddr = uaddr; 
 
+    //printf ("current page list: %zu\n", list_size (&curr->page_table));
+
     lock_acquire (&frame_lock);
     list_push_back (&frame_table, &fr->frame_elem);
     lock_release (&frame_lock);
@@ -127,6 +129,7 @@ void* evict_frame(void)
 
 void* evict_frame (void)
 {
+    //printf ("evict frame\n");
     lock_acquire(&frame_lock);
     struct list_elem *e = list_begin(&frame_table);
 
@@ -141,11 +144,13 @@ void* evict_frame (void)
 	    }
 	    else
 	    {
-		if (pagedir_is_dirty(t->pagedir, fte->vaddr) ||
-			pg->save_location != IN_FILE)
+		if (pagedir_is_dirty(t->pagedir, fte->vaddr)
+			||	pg->save_location != IN_FILE)
 		{
 			pg->save_location = IN_SWAP;
 			pg->page_idx = swap_write(fte->paddr);
+			//printf ("swap_write: %zu\n", pg->page_idx);
+			//printf ("===evict to swap===");
 #if 0		
 			char* buf = (char *) malloc (PGSIZE);
 			memcpy (buf, "hhyeo swap", PGSIZE);
@@ -156,6 +161,7 @@ void* evict_frame (void)
 			swap_read (idx, buf);
 			printf ("after swap: %s\n", buf);
 			free (buf);
+			
 #endif 			
 		}
 		list_remove(&fte->frame_elem);
