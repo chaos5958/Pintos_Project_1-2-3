@@ -94,6 +94,7 @@ bool add_file_to_page (uint8_t* vaddr_, void* save_addr_, bool is_writable_, uin
 
 bool add_new_page (void* vaddr_, bool is_writable_)
 {
+    printf ("========add page=========\n");
     struct page* pg = (struct page*) malloc (sizeof (struct page));
     if (pg == NULL)
 	return false;
@@ -159,6 +160,7 @@ bool load_page_file (struct page* pg)
 
 bool load_page_swap (struct page* pg)
 {
+    printf ("===load from swap===\n");
     struct frame* fr = alloc_frame (pg->vaddr);
     
     if (fr == NULL)

@@ -6,6 +6,7 @@
 #include "threads/pte.h"
 #include "threads/palloc.h"
 
+
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
 
@@ -97,25 +98,32 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
    failed. */
 bool
 pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
-{
-  uint32_t *pte;
+{ 
+    printf ("upage: %p, kpage: %p=======\n", upage, kpage); 
+    struct page* pg;
+    uint32_t *pte;
 
-  ASSERT (pg_ofs (upage) == 0);
-  ASSERT (pg_ofs (kpage) == 0);
-  ASSERT (is_user_vaddr (upage));
-  ASSERT (vtop (kpage) >> PTSHIFT < ram_pages);
-  ASSERT (pd != base_page_dir);
+    ASSERT (pg_ofs (upage) == 0);
+    ASSERT (pg_ofs (kpage) == 0);
+    ASSERT (is_user_vaddr (upage));
+    ASSERT (vtop (kpage) >> PTSHIFT < ram_pages);
+    ASSERT (pd != base_page_dir);
 
-  pte = lookup_page (pd, upage, true);
-
-  if (pte != NULL) 
+    if ((pg = find_page (upage)) == NULL)
     {
-      ASSERT ((*pte & PTE_P) == 0);
-      *pte = pte_create_user (kpage, writable);
-      return true;
+	if (!add_new_page (upage, writable))
+	    PANIC ("cannot add new page");
     }
-  else
-    return false;
+    pte = lookup_page (pd, upage, true);
+
+    if (pte != NULL) 
+    {
+	ASSERT ((*pte & PTE_P) == 0);
+	*pte = pte_create_user (kpage, writable);
+	return true;
+    }
+    else
+	return false;
 }
 
 /* Looks up the physical address that corresponds to user virtual
@@ -134,6 +142,7 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
     return pte_get_page (*pte) + pg_ofs (uaddr);
   else
     return NULL;
+
 }
 
 /* Marks user virtual page UPAGE "not present" in page

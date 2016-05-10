@@ -153,25 +153,36 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-
+ printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+  
   if (not_present)
   {
       struct page* pg;
       fault_addr = pg_round_down (fault_addr);
+      printf ("=====fault addr: %d=====\n", fault_addr);
+
       if ((pg = find_page (fault_addr)) == NULL)
       {
-	  printf ("==find page fail==\n");
+	   printf ("==find page fail: %0xd==\n", fault_addr);
 	  
 	  //Stack
-          if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
-	  {
+           if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
+	   {
+	      printf ("==stack==\n");
 	      if (!add_new_page (fault_addr, true))
 		  exit_ext (-1);
 
+	      printf ("==add==\n");
 	      pg = find_page (fault_addr);
 
 	      if (!load_page (pg))
 		  exit_ext (-1);
+	      
+	      printf ("==load==\n");
 	      /*
 	      int esp_off = (f->esp - fault_addr) / PGSIZE;
 	      printf ("esp_off: %d\n", esp_off);
@@ -194,7 +205,7 @@ page_fault (struct intr_frame *f)
 	      */
 	  }
 	  //Non-stack part
-	  else 
+	  else
 	      exit_ext (-1);
       }
       else
@@ -202,22 +213,22 @@ page_fault (struct intr_frame *f)
 	  printf("===page exist===");
 	  if (!load_page (pg))
 	      exit_ext (-1);
-	  printf("===load success===");
+	  //printf("===load success===");
       }
   }
 
   if (!is_user_vaddr (fault_addr) && user)
       exit_ext (-1);
 
-
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+     which fault_addr refers.*/
+/*  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
+  */
   //kill (f);
 }
 
