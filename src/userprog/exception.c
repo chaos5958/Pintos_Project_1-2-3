@@ -168,10 +168,9 @@ page_fault (struct intr_frame *f)
       if ((pg = find_page (fault_addr)) == NULL)
       {
 	  //Stack
-	   printf ("stack\n");
            if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
 	   {
-	       printf ("stack size grow\n");
+	      // printf ("stack size grow\n");
 	       //printf ("current addr: %p", PHYS_BASE - fault_addr);
 	      //fault_addr = pg_round_down (fault_addr);
 
@@ -224,8 +223,8 @@ page_fault (struct intr_frame *f)
 	      pg->is_loading = false;
 #endif 
 	      //printf ("current esp: %p", f->esp);
-	       printf ("current thread: %d\n", thread_current ()->tid);
-	       printf ("======error=======\n");
+	       //printf ("current thread: %d\n", thread_current ()->tid);
+	       //printf ("======error=======\n");
 	       PANIC ("exit");
 	       //halt();
 	       //power_off();
