@@ -153,7 +153,7 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 #if 0
-  printf ("current thread: %d\n", thread_current ()->tid); 
+  //printf ("current thread: %d\n", thread_current ()->tid); 
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
@@ -162,16 +162,18 @@ page_fault (struct intr_frame *f)
 #endif
   if (not_present)
   {
+      //printf("page_fault: not_present\n");
       struct page* pg;
       fault_addr = pg_round_down (fault_addr);
 
       if ((pg = find_page (fault_addr)) == NULL)
       {
-	  //Stack
-           if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
+	   //printf("page_fault: not_present: stack\n");
+	   //Stack
+           if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE && (f->esp - fault_addr <= 32))
 	   {
-	      // printf ("stack size grow\n");
-	       //printf ("current addr: %p", PHYS_BASE - fault_addr);
+	      //printf ("page_fault: not_present: stack: grow\n");
+	      //printf ("current addr: %p\n", PHYS_BASE - fault_addr);
 	      //fault_addr = pg_round_down (fault_addr);
 
 	      //printf ("==stack==\n");
@@ -225,24 +227,29 @@ page_fault (struct intr_frame *f)
 	      //printf ("current esp: %p", f->esp);
 	       //printf ("current thread: %d\n", thread_current ()->tid);
 	       //printf ("======error=======\n");
-	       PANIC ("exit");
+	       //PANIC ("exit");
 	       //halt();
 	       //power_off();
-	       //exit_ext (-1);
+	       exit_ext (-1);
 
 	   }
 
       }
       else
       {
+	  //printf("dd\n");
 	  if (!load_page (pg))
 	      exit_ext (-1);
 	  pg->is_loading = false;
       }
   }
+  else
+      exit_ext(-1);
  
-  if (!is_user_vaddr (fault_addr) && user)
+  if (!is_user_vaddr (fault_addr) && user){
+      //printf("invalid\n");
       exit_ext (-1);
+  }
 /*
      To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
