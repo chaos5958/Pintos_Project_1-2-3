@@ -211,7 +211,7 @@ exec (const char *file)
 {
     tid_t tid;
 
-    if (file == NULL || !is_user_vaddr (file))
+    if (file == NULL || !is_user_vaddr (file)||!pagedir_get_page (thread_current ()->pagedir, file))
 	exit (-1);
 	   // || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
       	//exit(-1);
@@ -353,9 +353,8 @@ write (int fd, const void *buffer, unsigned size)
     struct file_fd* file_fd; 
     struct list_elem* el;
         
-    if(buffer == NULL || !is_user_vaddr (buffer + size))
-	    //|| !pagedir_get_page (thread_current ()->pagedir, buffer + size)) {
-      	  exit (-1);
+    if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size))
+	exit (-1);
    
 
     if (fd == 1) {
