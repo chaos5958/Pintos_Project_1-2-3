@@ -56,7 +56,6 @@ process_execute (const char *file_name)
   /* team 10 modified: Create a new thread to execute TOKEN(FILE_NAME). */
   tid = thread_create (token, PRI_DEFAULT, start_process, fn_copy);
  
-  printf ("child tid: %d\n", tid); 
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy);
   }  
@@ -227,6 +226,7 @@ process_exit (void)
   for (i = 0; i < list_size (&curr->wait.waiters); i++)
       sema_up (&curr->wait);
 
+  free_frame_thread ();
   file_close (curr->execute_file);//close the executable of this process
   curr->execute_file = NULL;
 

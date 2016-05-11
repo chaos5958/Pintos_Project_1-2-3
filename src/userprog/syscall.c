@@ -219,7 +219,6 @@ exec (const char *file)
     tid = process_execute (file);    
     lock_release (&file_lock);
 
-    printf ("result tid: %d\n", tid);
     return (pid_t) tid;
 }
 
