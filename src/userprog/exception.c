@@ -9,7 +9,7 @@
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
 #include "vm/page.h"
-
+#include "threads/init.h"
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -152,13 +152,14 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
- /* 
+#if 0
+  printf ("current thread: %d\n", thread_current ()->tid); 
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  */
+#endif
   if (not_present)
   {
       struct page* pg;
@@ -167,10 +168,10 @@ page_fault (struct intr_frame *f)
       if ((pg = find_page (fault_addr)) == NULL)
       {
 	  //Stack
-	  // printf ("stack\n");
+	   printf ("stack\n");
            if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE)
 	   {
-	       //printf ("stack size grow\n");
+	       printf ("stack size grow\n");
 	       //printf ("current addr: %p", PHYS_BASE - fault_addr);
 	      //fault_addr = pg_round_down (fault_addr);
 
@@ -183,6 +184,8 @@ page_fault (struct intr_frame *f)
 
 	      if (!load_page (pg))
 		  exit_ext (-1);
+
+
 	      
 	      //printf ("==load==\n");
 	      /*
@@ -207,28 +210,52 @@ page_fault (struct intr_frame *f)
 	      */
 	  }
 	  //Non-stack part
-	  else
-	      exit_ext (-1);
+	   else{
+#if 0
+	       if (!add_new_page (fault_addr, true))
+		  exit_ext (-1);
+
+	      //printf ("==add==\n");
+	      pg = find_page (fault_addr);
+
+	      if (!load_page (pg))
+		  exit_ext (-1);
+
+	      pg->is_loading = false;
+#endif 
+	      //printf ("current esp: %p", f->esp);
+	       printf ("current thread: %d\n", thread_current ()->tid);
+	       printf ("======error=======\n");
+	       PANIC ("exit");
+	       //halt();
+	       //power_off();
+	       //exit_ext (-1);
+
+	   }
+
       }
       else
       {
 	  if (!load_page (pg))
 	      exit_ext (-1);
+	  pg->is_loading = false;
       }
   }
-
+ 
   if (!is_user_vaddr (fault_addr) && user)
       exit_ext (-1);
-
-  /* To implement virtual memory, delete the rest of the function
+/*
+     To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
-     which fault_addr refers.*/
-/*  printf ("Page fault at %p: %s error %s page in %s context.\n",
+     which fault_addr refers.
+     printf ("Page fault at %p: %s error %s page in %s context.\n",
+*/
+#if 0
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  */
-  //kill (f);
+  
+    kill (f);
+#endif
 }
-

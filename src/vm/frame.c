@@ -23,8 +23,8 @@
    void free_frame_table (struct frame*);
    */
 
-struct list frame_table;
-struct lock frame_lock;
+static struct list frame_table;
+static struct lock frame_lock;
 
 void frame_init (void)
 {
@@ -34,29 +34,44 @@ void frame_init (void)
 
 struct frame* alloc_frame (uint8_t* uaddr)
 {
-   struct frame* fr = (struct frame*) malloc (sizeof (struct frame));
+    bool is_evict = false;
+
+    if (thread_current ()->tid == 3)
+	printf ("alloc frame 1||thread: %d\n", thread_current ()->tid);
+
+    struct frame* fr = (struct frame*) malloc (sizeof (struct frame));
     if (fr == NULL)
 	return NULL;
+    if (thread_current ()->tid == 3)
+	printf ("alloc frame 2||thread: %d\n", thread_current ()->tid);
+
 
     //printf("frame get success");
     fr->paddr = palloc_get_page (PAL_USER);
 
     if (fr->paddr == NULL)
-    {
-	//printf ("=========frame fail===============\n");
-	while (fr->paddr == NULL)
-	{
-	    fr->paddr = evict_frame ();
-	}
-    }
+	is_evict = true;
 
+    while (fr->paddr == NULL)
+    {
+	fr->paddr = evict_frame ();
+    }
+    
+    fr->user = thread_current ();
+    fr->vaddr = uaddr; 
+
+    if (is_evict)
+	lock_release (&frame_lock);
+
+    //bool lock_held_by_current_thread (const struct lock *);
+
+    printf ("alloc user: %d, user_name: %s\n", fr->user->tid, fr->user->name);
+
+    printf ("alloc uaddr : %p\n", uaddr);
     //printf ("========frame: %p=======\n", fr->paddr);
     //	return NULL;
-
-    //printf("paddr get success");
-    struct thread* curr = thread_current ();
-    fr->user = curr; 
-    fr->vaddr = uaddr; 
+    if (thread_current ()->tid == 3)
+	printf ("alloc frame 3||thread: %d\n", thread_current ()->tid);
 
     //printf ("current page list: %zu\n", list_size (&curr->page_table));
 
@@ -69,10 +84,21 @@ struct frame* alloc_frame (uint8_t* uaddr)
 
 void free_frame (struct frame* fr)
 {
-    list_remove (&fr->frame_elem); 
-    palloc_free_page (fr->paddr);
+   list_remove (&fr->frame_elem); 
+   palloc_free_page (fr->paddr);
     free (fr);
 }
+
+/*
+void free_frame_thread (void)
+{
+    struct list_elem *el;
+    struct thread* curr = thread_current ();
+
+    lock_acquire (&frame_lock);
+}
+*/
+
 
 //team10: find frame to evict, and call dump_frame() to actually evict
 /*
@@ -129,17 +155,40 @@ void* evict_frame(void)
 
 void* evict_frame (void)
 {
-    //printf ("evict frame\n");
-    lock_acquire(&frame_lock);
+    printf ("evict start|thread_tid : %d\n", thread_current()->tid);
+    lock_acquire (&frame_lock);
     struct list_elem *e = list_begin(&frame_table);
-
+    int iteration = 0; 
+   
     while (true)
     {
+        printf ("iteration evict: %d", iteration);
+	printf ("frame size: %zu\n", list_size (&frame_table));
 	struct frame *fte = list_entry(e, struct frame, frame_elem);
-	struct page *pg = find_page (fte->vaddr);
+	struct page *pg = fte->sup_page;
+#if 1 
+	//if (pg == NULL)
+	if (1)
+	{
+	    printf ("=======eviction fail========\n");
+	    if (fte->user == NULL)
+		printf ("user NULL\n");
+	    printf ("user: %s\n", fte->user->name);
+	    printf ("user: %d\n", fte->user->tid);
+	    printf ("user page: %p\n", fte->paddr);
+	    printf ("curr: %d\n", thread_current ()->tid);
+	    printf ("pg: %p, pg_vaddr: %p, pg_save_location: %d\n", pg, pg->vaddr, pg->save_location);
+	    //e = list_next (e);
+	    //continue;
+	}
+#endif
+	if (!pg->is_loading)
+	{
+	    printf ("======eviction context\n");
 	    struct thread *t = fte->user;
 	    if (pagedir_is_accessed(t->pagedir, fte->vaddr))
 	    {
+		printf ("======access=======\n");
 		pagedir_set_accessed(t->pagedir, fte->vaddr, false);
 	    }
 	    else
@@ -147,35 +196,59 @@ void* evict_frame (void)
 		if (pagedir_is_dirty(t->pagedir, fte->vaddr)
 			||	pg->save_location != IN_FILE)
 		{
-			pg->save_location = IN_SWAP;
-			pg->page_idx = swap_write(fte->paddr);
-			//printf ("swap_write: %zu\n", pg->page_idx);
-			//printf ("===evict to swap===");
+		    pg->save_location = IN_SWAP;
+		    pg->page_idx = swap_write(fte->paddr);
+		    printf ("swap_write: %zu, tid: %d\n", pg->page_idx, thread_current ()->tid);
+		    //printf ("===evict to swap===");
 #if 0		
-			char* buf = (char *) malloc (PGSIZE);
-			memcpy (buf, "hhyeo swap", PGSIZE);
-			printf ("before swap: %s\n", buf);
-			size_t idx = swap_write (buf);
-			memset (buf, 0, PGSIZE);
-			printf ("swap write success\n");
-			swap_read (idx, buf);
-			printf ("after swap: %s\n", buf);
-			free (buf);
-			
+		    char* buf = (char *) malloc (PGSIZE);
+		    memcpy (buf, "hhyeo swap", PGSIZE);
+		    printf ("before swap: %s\n", buf);
+		    size_t idx = swap_write (buf);
+		    memset (buf, 0, PGSIZE);
+		    printf ("swap write success\n");
+		    swap_read (idx, buf);
+		    printf ("after swap: %s\n", buf);
+		    free (buf);
+
 #endif 			
 		}
 		list_remove(&fte->frame_elem);
 		pagedir_clear_page(t->pagedir, fte->vaddr);
 		palloc_free_page(fte->paddr);
+		//lock_release (&frame_lock);
 		free(fte);
-		lock_release (&frame_lock);
-		return palloc_get_page(PAL_USER);
+		printf ("===========eviction %d========\n", iteration);
+		void *ret = palloc_get_page (PAL_USER);
+		//if (ret == NULL)
+		//    printf ("========eviction return fail=======\n");
+		//return palloc_get_page(PAL_USER);
+		return ret;
 	    }
-	e = list_next(e);
+	}
+
+	printf ("before %p, next %p\n", e->prev, e->next);
+	printf ("list end: %p\n", list_end (&frame_table));
+	e = list_next (e);		
+
+	if (e == list_end (&frame_table))
+	{
+	    e = list_begin (&frame_table);
+	    printf ("change to begin\n");
+	}
+	printf ("before %p, next %p\n", e->prev->prev, e->prev->next);
+	printf ("list end: %p\n", list_end (&frame_table));
+
+	/*
 	if (e == list_end(&frame_table))
 	{
 	    e = list_begin(&frame_table);
+	    printf ("change to begin\n");
 	}
+	*/
+        //e = list_next (e);
+
+	iteration ++;
     }
 }
 
@@ -185,26 +258,26 @@ void* dump_frame (struct frame* fr, bool dirty)
     struct page* pg = find_page (fr->vaddr);
 
     //if dirty, write to swap
-	//lock_acquire(&frame_lock);
+    //lock_acquire(&frame_lock);
     //if (dirty)
-    
+
     //if (pg->save_location != IN_FILE)
     if (dirty || pg->save_location != IN_FILE)
     {
 	pg->save_location = IN_SWAP;
 	pg->page_idx = swap_write(fr->paddr);
-    
 
-    //lock_release(&frame_lock);
-      
-    //regain page
+
+	//lock_release(&frame_lock);
+
+	//regain page
     }
 
     pagedir_clear_page(fr->user->pagedir, fr->vaddr);
     free_frame (fr);
 
     return palloc_get_page (PAL_USER);
-    
+
 
     // alloc_frame(fr->vaddr);
 }

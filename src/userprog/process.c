@@ -55,7 +55,8 @@ process_execute (const char *file_name)
 
   /* team 10 modified: Create a new thread to execute TOKEN(FILE_NAME). */
   tid = thread_create (token, PRI_DEFAULT, start_process, fn_copy);
-  
+ 
+  printf ("child tid: %d\n", tid); 
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy);
   }  

@@ -87,10 +87,12 @@ bool add_file_to_page (uint8_t* vaddr_, void* save_addr_, bool is_writable_, uin
     pg->read_bytes = read_bytes_;
     pg->zero_bytes = zero_bytes_;
     pg->ofs = ofs_;
+    pg->is_loading = false;
 
     //printf ("page entry num: %zu", list_size (&curr->page_table));
-    
+    lock_acquire (&curr->page_lock); 
     list_push_back (&curr->page_table, &pg->page_elem);
+    lock_release (&curr->page_lock);
     return true;
 }
 
@@ -104,15 +106,21 @@ bool add_new_page (void* vaddr_, bool is_writable_)
     pg->vaddr = vaddr_; 
     pg->save_location = NONE;
     pg->is_writable = is_writable_;
+    pg->is_loading = false;
 
     //printf ("page entry num: %zu", list_size (&curr->page_table));
-    
+    lock_acquire (&curr->page_lock); 
     list_push_back (&curr->page_table, &pg->page_elem);
+    lock_release (&curr->page_lock);
     return true;
 }
 
 bool load_page (struct page* pg)
 {
+    printf ("load: %p, thread: %d", pg->vaddr, thread_current ()->tid);
+
+    pg->is_loading = true;
+
     switch (pg->save_location)
     {
 	case IN_FILE: if (!load_page_file (pg))
@@ -133,18 +141,30 @@ bool load_page (struct page* pg)
 
 bool load_page_file (struct page* pg)
 {
-    //printf ("===file===\n");
+    //if (thread_current ()->tid == 3)
+    printf ("load from file||thread: %d\n", thread_current ()->tid);
+
     struct frame* fr = alloc_frame (pg->vaddr);
+    fr->sup_page = pg;
     
+    if (thread_current ()->tid == 3)
+    printf ("load from file2\n");
+
+ 
     if (fr == NULL)
     {
 	free_frame (fr);
 	return false;
     }
+ 
+    if (thread_current ()->tid == 3)
+    printf ("load from file3\n");
+
 
     if (fr->paddr == NULL)
 	PANIC ("frame paddr null");
 
+    printf ("before file read\n");
     if (pg->read_bytes > 0)
     {
 	lock_acquire (&page_lock);
@@ -157,6 +177,7 @@ bool load_page_file (struct page* pg)
 
 	lock_release (&page_lock);
     }
+    printf ("after file read\n");
 
     if (pg->zero_bytes != 0)
 	memset (fr->paddr + pg->read_bytes, 0, pg->zero_bytes);
@@ -166,15 +187,18 @@ bool load_page_file (struct page* pg)
 	free_frame (fr);
 	return false;
     }
+    if (thread_current ()->tid ==3)
+    printf ("finish||thread: %d\n", thread_current ()->tid);
 
     return true;
 }
 
 bool load_page_swap (struct page* pg)
 {
-    //printf ("===swap read===\n");
+    printf ("load from swap||thread: %d\n", thread_current ()->tid);
     struct frame* fr = alloc_frame (pg->vaddr);
-    
+    fr->sup_page = pg;
+
     if (fr == NULL)
     {
 	free_frame (fr);
@@ -204,15 +228,16 @@ bool load_page_swap (struct page* pg)
     }
     
 
-    //printf ("swap_read: %zu\n", pg->page_idx);
+    printf ("swap_read: %zu\n", pg->page_idx);
 
     return true;
 }
 
 bool load_page_none (struct page* pg)
 {
-    struct frame* fr = alloc_frame (pg->vaddr);
-    
+    struct frame* fr = alloc_frame (pg->vaddr);    
+    fr->sup_page = pg;
+
     if (fr == NULL)
     {
 	free_frame (fr);
