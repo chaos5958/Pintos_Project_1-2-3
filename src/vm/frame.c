@@ -7,6 +7,8 @@
 #include "vm/swap.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
+
+#include "userprog/syscall.h"
 /*
    struct frame{
    struct thread* user;
@@ -95,7 +97,8 @@ void free_frame_thread (void)
 	if (fr->user == curr)
 	{
 	    el = list_remove (el);
-	    //palloc_free_page (fr->paddr);
+	    palloc_free_page (fr->paddr);
+	    pagedir_clear_page (curr->pagedir, fr->vaddr);
 	    free (fr);
 	}
 	else
@@ -110,6 +113,7 @@ void free_frame_thread (void)
 
 void* evict_frame(void)
 {
+    //printf ("wait_evict_frame, thread_tid: %d, frame_size: %zu\n", thread_current()->tid, list_size (&frame_table));
     //printf ("===evict_frame===\n");
     struct list_elem *el, *popel;
     struct frame *fr = NULL;
@@ -117,8 +121,32 @@ void* evict_frame(void)
     bool dirty, accessed;
     void* page = NULL;
 
+    //int iteration = 0; 
+
     lock_acquire (&frame_lock);
+    
     while (true){
+#if 0
+	if (iteration > 50)
+	{
+	    for (el = list_begin (&frame_table); el != list_end (&frame_table) ; el = list_next (el))
+	    {
+		fr = list_entry (el, struct frame, frame_elem);
+		if (fr->sup_page->is_loading == false)
+		    printf ("false\n");
+	    }
+	    printf ("list_size: %zu\n", list_size (&frame_table));
+	    lock_release (&frame_lock);
+	    exit_ext ("iteration 1");
+	}
+
+	iteration ++;
+
+
+	if ((page = palloc_get_page (PAL_USER)) != NULL)
+	    return page;
+#endif
+	//printf ("start_evict_frame, thread_tid: %d\n", thread_current()->tid);
 	//printf("searching for frame to evict...\n");
 	for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next(el)){ //traverse list to find unreferenced and unchanged frame
 	    fr = list_entry (el, struct frame, frame_elem);
@@ -234,7 +262,8 @@ void* evict_frame (void)
 //team10: actually evict frame
 void* dump_frame (struct frame* fr, bool dirty)
 {
-    //printf("dump frame\n");
+   //printf ("end_evict_frame, thread_tid: %d\n", thread_current()->tid);
+   //printf("dump frame\n");
     struct page* pg = fr->sup_page;
 
     if ((dirty) || (pg->save_location != IN_FILE))
