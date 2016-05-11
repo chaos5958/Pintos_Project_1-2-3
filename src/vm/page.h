@@ -17,6 +17,7 @@ struct page{
     void* save_addr;
     enum location save_location;
     bool is_writable;
+    bool is_loading;
 
     //for file
     size_t read_bytes;

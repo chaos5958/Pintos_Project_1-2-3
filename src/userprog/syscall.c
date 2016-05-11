@@ -211,12 +211,15 @@ exec (const char *file)
 {
     tid_t tid;
 
-    if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
-      	exit(-1);
+    if (file == NULL || !is_user_vaddr (file))
+	exit (-1);
+	   // || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
+      	//exit(-1);
     lock_acquire (&file_lock);
     tid = process_execute (file);    
     lock_release (&file_lock);
 
+    printf ("result tid: %d\n", tid);
     return (pid_t) tid;
 }
 
