@@ -8,6 +8,7 @@
 #define PF_U 0x4    /* 0: kernel, 1: user process. */
 
 #define MAX_STACK_SIZE (1<<23)
+#define USER_VADDR_BOTTOM 0x08048000
 
 void exception_init (void);
 void exception_print_stats (void);
