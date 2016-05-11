@@ -160,108 +160,43 @@ page_fault (struct intr_frame *f)
           write ? "writing" : "reading",
           user ? "user" : "kernel");
 #endif
-  if (not_present)
+  if (not_present && (fault_addr > USER_VADDR_BOTTOM) && (fault_addr < PHYS_BASE))
   {
-      //printf("page_fault: not_present\n");
-      struct page* pg;
-      fault_addr = pg_round_down (fault_addr);
+	  //printf("page_fault: not_present\n");
+	  struct page* pg;
+	  //fault_addr = pg_round_down (fault_addr);
 
-      if ((pg = find_page (fault_addr)) == NULL)
-      {
-	   //printf("page_fault: not_present: stack\n");
-	   //Stack
-           if (is_user_vaddr (fault_addr) && fault_addr > PHYS_BASE - MAX_STACK_SIZE && (f->esp - fault_addr <= 32))
-	   {
-	      //printf ("page_fault: not_present: stack: grow\n");
-	      //printf ("current addr: %p\n", PHYS_BASE - fault_addr);
-	      //fault_addr = pg_round_down (fault_addr);
-
-	      //printf ("==stack==\n");
-	      if (!add_new_page (fault_addr, true))
-		  exit_ext (-1);
-
-	      //printf ("==add==\n");
-	      pg = find_page (fault_addr);
-
-	      if (!load_page (pg))
-		  exit_ext (-1);
-
-
-	      
-	      //printf ("==load==\n");
-	      /*
-	      int esp_off = (f->esp - fault_addr) / PGSIZE;
-	      printf ("esp_off: %d\n", esp_off);
-	      printf ("falut_addr: %0xd, esp: %0xd, es-PGSIZE: %0xd\n", fault_addr, f->esp, fault_addr - f->esp);
-	      printf ("PHYS_BASE - esp_off*PGS: %0xd\n", f->esp - fault_addr);
-
-
-	      if (f->esp - PGSIZE < PHYS_BASE - (1<<23))
-		  exit_ext (-1);
-	     printf ("==stack increase start==\n");
-	      if (!add_mem_to_page (fault_addr, NULL, true))
-		  exit_ext (-1);
-
-	      pg = find_page (fault_addr);
-	      printf ("==page found==\n"); 
-	      if (!load_page (pg))
-		  exit_ext (-1);
-	      printf ("==stack increase success==\n");
-	      //f->esp = fault_addr;
-	      */
+	  if ((pg = find_page (fault_addr)) != NULL)
+	  {  
+		  if (!load_page (pg))
+			  exit_ext (-1);
+		  pg->is_loading = false;
 	  }
-	  //Non-stack part
-	   else{
-#if 0
-	       if (!add_new_page (fault_addr, true))
-		  exit_ext (-1);
 
-	      //printf ("==add==\n");
-	      pg = find_page (fault_addr);
+	  else
+	  {
+		  if (f->esp - fault_addr <= 32)
+		  {
+			  fault_addr = pg_round_down (fault_addr);
+			  if (!add_new_page (fault_addr, true))
+				  exit_ext (-1);
 
-	      if (!load_page (pg))
-		  exit_ext (-1);
+			  //printf ("==add==\n");
+			  pg = find_page (fault_addr);
 
-	      pg->is_loading = false;
-#endif 
-	      //printf ("current esp: %p", f->esp);
-	       //printf ("current thread: %d\n", thread_current ()->tid);
-	       //printf ("======error=======\n");
-	       //PANIC ("exit");
-	       //halt();
-	       //power_off();
-	       exit_ext (-1);
-
-	   }
-
-      }
-      else
-      {
-	  //printf("dd\n");
-	  if (!load_page (pg))
-	      exit_ext (-1);
-	  pg->is_loading = false;
-      }
+			  if (!load_page (pg))
+				  exit_ext (-1);
+		  }
+		  else 
+			  exit_ext (-1);
+	  }
   }
-  else
-      exit_ext(-1);
- 
-  if (!is_user_vaddr (fault_addr) && user){
-      //printf("invalid\n");
-      exit_ext (-1);
-  }
+  else 
+	  exit_ext (-1);
 /*
      To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers.
      printf ("Page fault at %p: %s error %s page in %s context.\n",
 */
-#if 0
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  
-    kill (f);
-#endif
 }
