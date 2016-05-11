@@ -75,11 +75,3 @@ bool swap_read (size_t page_idx, void* frame)
 
     return true;
 }
-
-
-
-    
-
-
-
-
