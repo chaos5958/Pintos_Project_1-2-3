@@ -48,15 +48,16 @@ struct frame* alloc_frame (uint8_t* uaddr)
     while (fr->paddr == NULL)
     {
 	fr->paddr = evict_frame ();
+	lock_release (&frame_lock);
     }
     
     fr->user = thread_current ();
     fr->vaddr = uaddr; 
-
+/*
     if (is_evict){
 	lock_release (&frame_lock);
     }
-    
+*/  
     //printf ("current thread tid : %d\n", thread_current ()->tid);
 
     //printf ("alloc user: %d, user_name: %s\n", fr->user->tid, fr->user->name);
@@ -74,7 +75,7 @@ struct frame* alloc_frame (uint8_t* uaddr)
 
 void free_frame (struct frame* fr)
 {
-   list_remove (&fr->frame_elem); 
+    list_remove (&fr->frame_elem); 
     palloc_free_page (fr->paddr);
     free (fr);
 }
@@ -106,58 +107,62 @@ void free_frame_thread (void)
 
 
 //team10: find frame to evict, and call dump_frame() to actually evict
-/*
+
 void* evict_frame(void)
 {
-    printf ("===evict_frace===\n");
+    //printf ("===evict_frame===\n");
     struct list_elem *el, *popel;
     struct frame *fr = NULL;
+    struct page *frpg = NULL;
     bool dirty, accessed;
     void* page = NULL;
-    int k;
 
     lock_acquire (&frame_lock);
-    for (k = 0; k < 2; k++){
-
+    while (true){
+	//printf("searching for frame to evict...\n");
 	for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next(el)){ //traverse list to find unreferenced and unchanged frame
 	    fr = list_entry (el, struct frame, frame_elem);
+	    frpg = fr->sup_page;
 
 	    dirty = pagedir_is_dirty(fr->user->pagedir, fr->vaddr);
 	    accessed = pagedir_is_accessed(fr->user->pagedir, fr->vaddr);
-	    if ((accessed == false) && (dirty == false)){
+	    if (!accessed && !dirty && !(frpg->is_loading)){
 		page = dump_frame(fr, dirty);
-		lock_release (&frame_lock);
+		//printf("evict frame exit\n");
 		return page;
 	    }
 	}
 
-	for (el = list_begin (&frame_table); el != list_end (&frame_table); ){ //traverse list to find unreferenced but changed frame
+	for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next (el)){ //traverse list to find unreferenced but changed frame
 	    fr = list_entry (el, struct frame, frame_elem);
+	    frpg = fr->sup_page;
 
 	    dirty = pagedir_is_dirty(fr->user->pagedir, fr->vaddr);
 	    accessed = pagedir_is_accessed(fr->user->pagedir, fr->vaddr);
-	    if ((accessed == false) && (dirty == true)){
+	    if (!accessed && dirty && !(frpg->is_loading)){
 		page = dump_frame(fr, dirty);
-		lock_release (&frame_lock);
+		//printf("evict frame exit\n");
 		return page;
 	    }
-	    if (accessed == true){
-	    pagedir_set_accessed (fr->user->pagedir, fr->vaddr, false);
-	    popel = el;
-	    el = list_remove (popel);
-	    list_push_back (&frame_table, popel);
-	    }
+	    if (accessed && !(frpg->is_loading)){
+	        pagedir_set_accessed (fr->user->pagedir, fr->vaddr, false);/*
+		//put the frame to the rear part of the list
+		//erase list_next(el) on for loop; make else el=next(el) to go to the next this part is not executed.
+		popel = el;
+		el = list_remove (popel);
+		list_push_back (&frame_table, popel); */
+	    }/*
 	    else
-	    el = list_next (el);
-	    }
-	    }
+		el = list_next (el);*/
+	}
+    }
 
-	    lock_release (&frame_lock);
-	    return page;
-	    }    
-	    */
+    lock_release (&frame_lock);
+    return page;
+}    
 
 
+/*
 void* evict_frame (void)
 {
     //printf ("evict start|thread_tid : %d\n", thread_current()->tid);
@@ -194,6 +199,7 @@ void* evict_frame (void)
 	    }
 	    else
 	    {
+		printf("%d, %d\n", pagedir_is_dirty(t->pagedir, fte->vaddr), pg->save_location);
 		if (pagedir_is_dirty(t->pagedir, fte->vaddr)
 			||	pg->save_location != IN_FILE)
 		{
@@ -224,33 +230,20 @@ void* evict_frame (void)
 	iteration ++;
     }
 }
-
+*/
 //team10: actually evict frame
 void* dump_frame (struct frame* fr, bool dirty)
 {
-    struct page* pg = find_page (fr->vaddr);
+    //printf("dump frame\n");
+    struct page* pg = fr->sup_page;
 
-    //if dirty, write to swap
-    //lock_acquire(&frame_lock);
-    //if (dirty)
-
-    //if (pg->save_location != IN_FILE)
-    if (dirty || pg->save_location != IN_FILE)
+    if ((dirty) || (pg->save_location != IN_FILE))
     {
 	pg->save_location = IN_SWAP;
 	pg->page_idx = swap_write(fr->paddr);
-
-
-	//lock_release(&frame_lock);
-
-	//regain page
     }
-
     pagedir_clear_page(fr->user->pagedir, fr->vaddr);
     free_frame (fr);
-
+    //printf("dump frame exit\n");
     return palloc_get_page (PAL_USER);
-
-
-    // alloc_frame(fr->vaddr);
 }
