@@ -152,13 +152,7 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-#if 0
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-#endif
+  
   //check if the fault addr is in valid user address space and is not_present case
   if (not_present && (fault_addr > USER_VADDR_BOTTOM) && (fault_addr < PHYS_BASE))
   {

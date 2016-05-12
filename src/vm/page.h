@@ -12,6 +12,15 @@ enum location{
     NONE
 };
 
+//struct page
+//1. vaddr: virtual addr of this page
+//2. save_addr (for file): file address which page is read from it
+//3. save_location: save location of this page when it is evicted 
+//4. is_wribable: indicates whether this page is writable or not
+//5. is_loading: indicates whether this page is being loaded
+//6. read_bytes / zeroytes / ofs: read bytes, zero bytes, offset of the file where this page is located
+//7. page_idx: index for swap disk
+//8. page_elem: list_elem for traverse page_table list 
 struct page{
     uint8_t* vaddr; 
     void* save_addr;
