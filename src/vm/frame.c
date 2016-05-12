@@ -9,31 +9,21 @@
 #include "threads/vaddr.h"
 
 #include "userprog/syscall.h"
-/*
-   struct frame{
-   struct thread* user;
-   void* vaddr;
-   void* paddr; 
-   struct list_elem frame_elem;
-   };
-
-
-   void frame_init (void);
-   void add_frame (struct frame*);
-   struct frame* alloc_frame (void*);
-   void free_frame (struct frame*);
-   void free_frame_table (struct frame*);
-   */
 
 static struct list frame_table;
 static struct lock frame_lock;
 
+void* dump_frame (struct frame* , bool);
+
+/*team10: initiates frame table and lock*/
 void frame_init (void)
 {
     list_init (&frame_table);
     lock_init (&frame_lock);
 }
 
+/*team10: allocate new frame to virtual address uaddr
+ * returns pointer to frame structure of newly allocated frame*/
 struct frame* alloc_frame (uint8_t* uaddr)
 {
     bool is_evict = false;
@@ -55,18 +45,6 @@ struct frame* alloc_frame (uint8_t* uaddr)
     
     fr->user = thread_current ();
     fr->vaddr = uaddr; 
-/*
-    if (is_evict){
-	lock_release (&frame_lock);
-    }
-*/  
-    //printf ("current thread tid : %d\n", thread_current ()->tid);
-
-    //printf ("alloc user: %d, user_name: %s\n", fr->user->tid, fr->user->name);
-
-    //printf ("alloc uaddr : %p\n", uaddr);
-
-    //printf ("current page list: %zu\n", list_size (&curr->page_table));
 
     lock_acquire (&frame_lock);
     list_push_back (&frame_table, &fr->frame_elem);
@@ -75,14 +53,16 @@ struct frame* alloc_frame (uint8_t* uaddr)
     return fr;
 }
 
+/*frees frma fr*/
 void free_frame (struct frame* fr)
 {
     list_remove (&fr->frame_elem); 
     palloc_free_page (fr->paddr);
+    pagedir_clear_page (fr->user->pagedir, fr->vaddr);
     free (fr);
 }
 
-
+/*team10: releases all frames owned by current thread*/
 void free_frame_thread (void)
 {
     struct list_elem *el;
@@ -107,47 +87,19 @@ void free_frame_thread (void)
     lock_release (&frame_lock);
 }
 
-
-
-//team10: find frame to evict, and call dump_frame() to actually evict
-
+/*team10: find frame to evict, and call dump_frame() to actually evict
+ * returns newly allocated page*/
 void* evict_frame(void)
 {
-    //printf ("wait_evict_frame, thread_tid: %d, frame_size: %zu\n", thread_current()->tid, list_size (&frame_table));
-    //printf ("===evict_frame===\n");
     struct list_elem *el, *popel;
     struct frame *fr = NULL;
     struct page *frpg = NULL;
     bool dirty, accessed;
     void* page = NULL;
 
-    //int iteration = 0; 
-
     lock_acquire (&frame_lock);
     
     while (true){
-#if 0
-	if (iteration > 50)
-	{
-	    for (el = list_begin (&frame_table); el != list_end (&frame_table) ; el = list_next (el))
-	    {
-		fr = list_entry (el, struct frame, frame_elem);
-		if (fr->sup_page->is_loading == false)
-		    printf ("false\n");
-	    }
-	    printf ("list_size: %zu\n", list_size (&frame_table));
-	    lock_release (&frame_lock);
-	    exit_ext ("iteration 1");
-	}
-
-	iteration ++;
-
-
-	if ((page = palloc_get_page (PAL_USER)) != NULL)
-	    return page;
-#endif
-	//printf ("start_evict_frame, thread_tid: %d\n", thread_current()->tid);
-	//printf("searching for frame to evict...\n");
 	for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next(el)){ //traverse list to find unreferenced and unchanged frame
 	    fr = list_entry (el, struct frame, frame_elem);
 	    frpg = fr->sup_page;
@@ -156,7 +108,6 @@ void* evict_frame(void)
 	    accessed = pagedir_is_accessed(fr->user->pagedir, fr->vaddr);
 	    if (!accessed && !dirty && !(frpg->is_loading)){
 		page = dump_frame(fr, dirty);
-		//printf("evict frame exit\n");
 		return page;
 	    }
 	}
@@ -169,19 +120,11 @@ void* evict_frame(void)
 	    accessed = pagedir_is_accessed(fr->user->pagedir, fr->vaddr);
 	    if (!accessed && dirty && !(frpg->is_loading)){
 		page = dump_frame(fr, dirty);
-		//printf("evict frame exit\n");
 		return page;
 	    }
 	    if (accessed && !(frpg->is_loading)){
-	        pagedir_set_accessed (fr->user->pagedir, fr->vaddr, false);/*
-		//put the frame to the rear part of the list
-		//erase list_next(el) on for loop; make else el=next(el) to go to the next this part is not executed.
-		popel = el;
-		el = list_remove (popel);
-		list_push_back (&frame_table, popel); */
-	    }/*
-	    else
-		el = list_next (el);*/
+	        pagedir_set_accessed (fr->user->pagedir, fr->vaddr, false);
+	    }
 	}
     }
 
@@ -189,81 +132,10 @@ void* evict_frame(void)
     return page;
 }    
 
-
-/*
-void* evict_frame (void)
-{
-    //printf ("evict start|thread_tid : %d\n", thread_current()->tid);
-    lock_acquire (&frame_lock);
-    struct list_elem *e = list_begin(&frame_table);
-    int iteration = 0; 
-   
-    while (true)
-    {
-	struct frame *fte = list_entry(e, struct frame, frame_elem);
-	struct page *pg = fte->sup_page;
-#if 0 
-	//if (pg == NULL)
-	if (1)
-	{
-	    printf ("=======eviction fail========\n");
-	    if (fte->user == NULL)
-		printf ("user NULL\n");
-	    printf ("user: %s\n", fte->user->name);
-	    printf ("user: %d\n", fte->user->tid);
-	    printf ("user page: %p\n", fte->paddr);
-	    printf ("curr: %d\n", thread_current ()->tid);
-	    printf ("pg: %p, pg_vaddr: %p, pg_save_location: %d\n", pg, pg->vaddr, pg->save_location);
-	    //e = list_next (e);
-	    //continue;
-	}
-#endif
-	if (!pg->is_loading)
-	{
-	    struct thread *t = fte->user;
-	    if (pagedir_is_accessed(t->pagedir, fte->vaddr))
-	    {
-		pagedir_set_accessed(t->pagedir, fte->vaddr, false);
-	    }
-	    else
-	    {
-		printf("%d, %d\n", pagedir_is_dirty(t->pagedir, fte->vaddr), pg->save_location);
-		if (pagedir_is_dirty(t->pagedir, fte->vaddr)
-			||	pg->save_location != IN_FILE)
-		{
-		    pg->save_location = IN_SWAP;
-		    pg->page_idx = swap_write(fte->paddr);
-		    //printf ("swap_write: %zu, tid: %d\n", pg->page_idx, thread_current ()->tid);
-		    //printf ("===evict to swap===");
-
-		}
-		list_remove(&fte->frame_elem);
-		pagedir_clear_page(t->pagedir, fte->vaddr);
-		palloc_free_page(fte->paddr);
-		//lock_release (&frame_lock);
-		free(fte);
-		return palloc_get_page (PAL_USER);
-	    }
-	}
-
-	//printf ("before %p, next %p\n", e->prev, e->next);
-	//printf ("list end: %p\n", list_end (&frame_table));
-	e = list_next (e);		
-
-	if (e == list_end (&frame_table))
-	{
-	    e = list_begin (&frame_table);
-	}
-
-	iteration ++;
-    }
-}
-*/
-//team10: actually evict frame
+/*team10: evict frame fr according to its dirty value(dirty value indicates whether the frame has been modified)
+ * returns address of new page allocated after eviction*/
 void* dump_frame (struct frame* fr, bool dirty)
 {
-   //printf ("end_evict_frame, thread_tid: %d\n", thread_current()->tid);
-   //printf("dump frame\n");
     struct page* pg = fr->sup_page;
 
     if ((dirty) || (pg->save_location != IN_FILE))
@@ -271,8 +143,7 @@ void* dump_frame (struct frame* fr, bool dirty)
 	pg->save_location = IN_SWAP;
 	pg->page_idx = swap_write(fr->paddr);
     }
-    pagedir_clear_page(fr->user->pagedir, fr->vaddr);
     free_frame (fr);
-    //printf("dump frame exit\n");
+
     return palloc_get_page (PAL_USER);
 }
