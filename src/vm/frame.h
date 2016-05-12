@@ -18,10 +18,8 @@ struct frame{
 //void init_frame (struct frame*);
 
 void frame_init (void);
-void add_frame (struct frame*);
 struct frame* alloc_frame (uint8_t*);
 void free_frame (struct frame*);
 void free_frame_thread (void);
 void* evict_frame(void);
-void* dump_frame (struct frame*, bool);
 #endif
