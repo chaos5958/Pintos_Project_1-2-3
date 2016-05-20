@@ -162,7 +162,7 @@ page_fault (struct intr_frame *f)
 	  {//page exists
 		  if (!load_page (pg))
 			  exit_ext (-1);
-		  pg->is_loading = false;
+		  //pg->is_loading = false;
 	  }
 
 	  else

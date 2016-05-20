@@ -230,11 +230,13 @@ process_exit (void)
   file_close (curr->execute_file);//close the executable of this process
   curr->execute_file = NULL;
 
+  //lock_acquire (&file_lock);
   while (!list_empty (&curr->open_file))
   {
       el = list_pop_front (&curr->open_file);
       close_file (el);
   }
+  //lock_release (&file_lock);
 
   old_level = intr_disable ();
   thread_block ();
