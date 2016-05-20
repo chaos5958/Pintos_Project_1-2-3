@@ -569,6 +569,8 @@ static mapid_t mmap (int fd, void *addr)
 	    }
 	    file_len = 0; 
 	}
+	addr += PGSIZE;
+	//printf ("mmap: %p\n", addr);
     }
 
     return thread_current ()->map_id;
@@ -598,7 +600,8 @@ static void munmap (mapid_t mapid)
 	    {	
 		if (pg->is_loaded)
 		{
-		    //printf ("page is loaded\n");
+//		    printf ("page is loaded\n");
+		    
 		    fr = find_frame (pg->vaddr); 
 		    if (pagedir_is_dirty (thread_current ()->pagedir, pg->vaddr))
 		    {
@@ -635,6 +638,6 @@ static void munmap (mapid_t mapid)
 	    el = list_next (el);
 
     }
-    //printf ("munmap done\n");
+   // printf ("munmap done\n");
 }
 
