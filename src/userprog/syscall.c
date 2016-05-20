@@ -584,6 +584,7 @@ static void munmap (mapid_t mapid)
 
 //    for (el = list_begin (&curr->map_list); el != list_end (&curr->map_list); el = list_next (el))
 
+
     while (el != list_end (&curr->map_list))
     {
 	mp = list_entry (el, struct mmap, mmap_elem);
@@ -597,25 +598,30 @@ static void munmap (mapid_t mapid)
 	    {	
 		if (pg->is_loaded)
 		{
+		    //printf ("page is loaded\n");
+		    fr = find_frame (pg->vaddr); 
 		    if (pagedir_is_dirty (thread_current ()->pagedir, pg->vaddr))
 		    {
+			//printf ("page is dirty\n");
 			lock_acquire (&file_lock);
 			file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
 			lock_release (&file_lock);
 		    }
-
-		    fr = find_frame (pg->vaddr);
+		    //printf ("==1==\n");
 		    free_frame (fr);
 
+		    //printf ("==2==\n");
 		    lock_acquire (&curr->page_lock);
 		    list_remove (&pg->page_elem);
 		    lock_release (&curr->page_lock);
 
 		    free (pg);
 		    free (mp);
+		    //printf ("==3==\n");
 		}
 		else
 		{
+		    //printf ("page is not loaded\n");
 		    lock_acquire (&curr->page_lock);
 		    list_remove (&pg->page_elem);
 		    lock_release (&curr->page_lock);
@@ -629,5 +635,6 @@ static void munmap (mapid_t mapid)
 	    el = list_next (el);
 
     }
+    //printf ("munmap done\n");
 }
 
