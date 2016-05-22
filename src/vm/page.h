@@ -5,12 +5,15 @@
 #include "filesys/off_t.h"
 #include <list.h>
 #include "filesys/file.h"
+#include <user/syscall.h>
 
 enum location{
     IN_SWAP,
     IN_FILE,
+    IN_MMAP,
     NONE
 };
+
 
 //struct page
 //1. vaddr: virtual addr of this page
@@ -27,6 +30,7 @@ struct page{
     enum location save_location;
     bool is_writable;
     bool is_loading;
+    bool is_loaded;
 
     //for file
     size_t read_bytes;
@@ -40,6 +44,16 @@ struct page{
     struct list_elem page_elem;
 };
 
+struct mmap{
+    mapid_t mmap_id;
+    uint8_t* vaddr;
+
+    struct list_elem mmap_elem;
+};
+
+    
+
+
 //void init_page (struct page*);
 
 struct page* find_page (void*);
@@ -52,5 +66,6 @@ void free_page_table (struct list*);
 bool load_page_file (struct page*);
 bool load_page_swap (struct page*);
 bool load_page_none (struct page*);
+bool add_mmap_to_page (uint8_t* vaddr_, void* save_addr_, uint32_t read_bytes_, uint32_t zero_bytes_, off_t ofs);
 
 #endif

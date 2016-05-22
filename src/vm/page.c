@@ -66,10 +66,46 @@ bool add_file_to_page (uint8_t* vaddr_, void* save_addr_, bool is_writable_, uin
     pg->zero_bytes = zero_bytes_;
     pg->ofs = ofs_;
     pg->is_loading = false;
+    pg->is_loaded = false;
 
     lock_acquire (&curr->page_lock); 
     list_push_back (&curr->page_table, &pg->page_elem);
     lock_release (&curr->page_lock);
+    return true;
+}
+
+bool add_mmap_to_page (uint8_t* vaddr_, void* save_addr_, uint32_t read_bytes_, uint32_t zero_bytes_, off_t ofs_)
+{
+    //create mmap sup-page
+    struct page* pg = (struct page*) malloc (sizeof (struct page));
+    if (pg == NULL)
+	return false;
+    struct thread* curr = thread_current ();
+    pg->vaddr = vaddr_; 
+    pg->save_addr = save_addr_;
+    pg->save_location = IN_MMAP;
+    pg->is_writable = true;
+    pg->read_bytes = read_bytes_;
+    pg->zero_bytes = zero_bytes_;
+    pg->ofs = ofs_;
+    pg->is_loading = false;
+    pg->is_loaded = false;
+    //create mmap to track it 
+    struct mmap *mp = (struct mmap *) malloc (sizeof (struct mmap));
+    if (mp == NULL)
+    {
+	free (pg);
+	return false;
+    }
+
+    mp->mmap_id = thread_current ()->map_id;
+    mp->vaddr = vaddr_;
+
+    lock_acquire (&curr->page_lock); 
+    list_push_back (&curr->page_table, &pg->page_elem);
+    list_push_back (&curr->map_list, &mp->mmap_elem);
+    lock_release (&curr->page_lock);
+
     return true;
 }
 
@@ -89,10 +125,16 @@ bool add_new_page (void* vaddr_, bool is_writable_)
     pg->save_location = NONE;
     pg->is_writable = is_writable_;
     pg->is_loading = false;
+    pg->is_loaded = false;
 
     lock_acquire (&curr->page_lock); 
     list_push_back (&curr->page_table, &pg->page_elem);
     lock_release (&curr->page_lock);
+    
+    //impl
+    //mmap table && doing sth...
+
+
     return true;
 }
 
@@ -115,12 +157,18 @@ bool load_page (struct page* pg)
 			  return false;
 		      break;
 	
+	case IN_MMAP: if (!load_page_file (pg))
+			  return false;
+		      break; 
+
 	//page is created for stack growth		      
 	case NONE:  if (!load_page_none (pg))
 			  return false;
 		      break;
     }    
 
+    pg->is_loading = false;
+    pg->is_loaded = true;
     return true;
 }
 
@@ -144,15 +192,15 @@ bool load_page_file (struct page* pg)
     if (pg->read_bytes > 0)
     {
 	//read file from pg->save_addr and write into a frame with physicall address address fr->paddr
-	lock_acquire (&page_lock);
+	lock_acquire (&file_lock);
 	if (file_read_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs) != (int) pg->read_bytes)
 	{
-	    lock_release (&page_lock);
+	    lock_release (&file_lock);
 	    free_frame (fr);
 	    return false;
 	}
 
-	lock_release (&page_lock);
+	lock_release (&file_lock);
     }
 
     if (pg->zero_bytes != 0)
@@ -168,6 +216,7 @@ bool load_page_file (struct page* pg)
 
     return true;
 }
+
 
 //function: laod_page_swap
 //load a page with address pg from the swap disk

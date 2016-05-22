@@ -69,7 +69,6 @@ void free_frame_thread (void)
     struct thread* curr = thread_current ();
     struct frame *fr = NULL;
 
-    int iteration = 0;
     lock_acquire (&frame_lock);
     for (el = list_begin (&frame_table); el != list_end (&frame_table);)
     {
@@ -91,7 +90,7 @@ void free_frame_thread (void)
  * returns newly allocated page*/
 void* evict_frame(void)
 {
-    struct list_elem *el, *popel;
+    struct list_elem *el;
     struct frame *fr = NULL;
     struct page *frpg = NULL;
     bool dirty, accessed;
@@ -138,12 +137,44 @@ void* dump_frame (struct frame* fr, bool dirty)
 {
     struct page* pg = fr->sup_page;
 
-    if ((dirty) || (pg->save_location != IN_FILE))
+    if ((dirty) || (pg->save_location == IN_SWAP))
     {
-	pg->save_location = IN_SWAP;
-	pg->page_idx = swap_write(fr->paddr);
+	if (pg->save_location == IN_MMAP)
+	{
+	    lock_acquire (&file_lock);
+	    file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
+	    lock_release (&file_lock);
+	}
+	else
+	{
+	    pg->save_location = IN_SWAP;
+	    pg->page_idx = swap_write(fr->paddr);
+	}
     }
+    pg->is_loaded = false;
     free_frame (fr);
 
     return palloc_get_page (PAL_USER);
 }
+
+struct frame *find_frame (uint8_t *vaddr)
+{
+    struct frame *fr;
+    struct list_elem* el;
+
+    lock_acquire (&frame_lock);
+    for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next (el))
+    {
+	fr = list_entry (el, struct frame, frame_elem);
+	
+	if (fr->vaddr == vaddr)
+	{
+	    lock_release (&frame_lock);
+	    return fr;
+	}
+    }
+    lock_release (&frame_lock);
+    return NULL;
+}
+
+

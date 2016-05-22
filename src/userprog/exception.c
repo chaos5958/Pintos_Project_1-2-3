@@ -156,32 +156,53 @@ page_fault (struct intr_frame *f)
   //check if the fault addr is in valid user address space and is not_present case
   if (not_present && (fault_addr > USER_VADDR_BOTTOM) && (fault_addr < PHYS_BASE))
   {
+#if 0
 	  struct page* pg;
+	  struct list_elem *el;
+	  for (el = list_begin (&thread_current ()->page_table);
+		      el != list_end (&thread_current ()->page_table);
+			  el = list_next (el))
+	  {
+	      pg = list_entry (el, struct page, page_elem);
+	      printf ("addr: %p\n", pg->vaddr);
+	  }
 
-	  if ((pg = find_page (fault_addr)) != NULL)
+	  printf ("page_sup size: %zu\n", list_size (&thread_current ()->page_table));
+#endif	
+
+	  void *fault_addr_align = pg_round_down (fault_addr);
+	  struct page* pg = find_page (fault_addr_align);
+	  
+	  if (pg)
 	  {//page exists
+	      //printf ("page_exist\n");
 		  if (!load_page (pg))
 			  exit_ext (-1);
-		  pg->is_loading = false;
+		  //pg->is_loading = false;
 	  }
 
 	  else
 	  {//page does not exist
-		  if (f->esp - fault_addr <= 32)
+		     //printf ("f->esp: %p, fault_addr: %p\n", f->esp, fault_addr);
+		      //printf ("fault_addr: %p\n", pg_round_down (fault_addr));
+	      //printf ("page_not_exist\n");
+		  if (f->esp - 32  <= fault_addr)
 		  {//valid position
-			  fault_addr = pg_round_down (fault_addr);
-			  if (!add_new_page (fault_addr, true))
-				  exit_ext (-1);
+		      if (!add_new_page (fault_addr_align, true)) 
+			  exit_ext (-1);
 
-			  pg = find_page (fault_addr);
+		      //printf ("==1==\n");
+		      pg = find_page (fault_addr_align);
 
-			  if (!load_page (pg))
-				  exit_ext (-1);
+		      //printf ("==2==\n");
+		      if (!load_page (pg)) 
+			  exit_ext (-1);
+		      //printf ("==3==\n");
 		  }
 		  else 
-			  exit_ext (-1);
+		      exit_ext (-1);
 	  }
   }
   else 
-	  exit_ext (-1);
+      exit_ext (-1);
 }

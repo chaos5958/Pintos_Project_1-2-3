@@ -675,6 +675,8 @@ init_thread (struct thread *t, const char *name, int priority)
 
   //project 3
   list_init (&(t->page_table));
+  t->map_id = 0;
+  list_init (&t->map_list);
 #endif 
 }
 

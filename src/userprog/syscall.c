@@ -12,8 +12,15 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/synch.h"
-
-typedef int pid_t;
+#include "filesys/off_t.h"
+#include "vm/page.h"
+#include "vm/frame.h"
+#include <user/syscall.h>
+#include "userprog/pagedir.h"
+#include "threads/init.h"
+#include "devices/input.h"
+//typedef int pid_t;
+//typedef int mapid_t;
 #define FD_START 0 
 
 struct file_fd 
@@ -25,7 +32,7 @@ struct file_fd
 };
 
 static struct list file_list;
-static struct lock file_lock; 
+//static struct lock file_lock; 
 
 static void syscall_handler (struct intr_frame *);
 
@@ -42,9 +49,9 @@ static int write (int fd, const void *buffer, unsigned length);
 static void seek (int fd, unsigned position);
 static unsigned tell (int fd);
 static void close (int fd);
-static struct file* find_file (int fd); 
-static void close_f (int fd);
-
+//static struct file* find_file (int fd); 
+static mapid_t mmap(int fd, void *addr);
+static void munmap (mapid_t mapid);
 static int get_fd (void);
 
 
@@ -164,12 +171,25 @@ syscall_handler (struct intr_frame *f)
 			 break;
 		     }
 
-      case SYS_CLOSE: if(!is_user_vaddr (ptr + 1))
-			   goto done;
-		       else{
-			   close (*(ptr + 1));
-			   break;
-		       }
+      case SYS_CLOSE: if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2))
+			  goto done;
+		      else{
+			  close (*(ptr + 1));
+			  break;
+		      }
+      case SYS_MMAP: if (!is_user_vaddr (ptr + 1))
+			 goto done;
+		     {
+			 mapid_t ret = mmap (*(ptr + 1), *(ptr + 2));
+			 f->eax = ret;
+			 break;
+		     }
+      case SYS_MUNMAP: if (!is_user_vaddr (ptr + 1))
+			  goto done;
+		      else {
+			  munmap (*(ptr + 1));
+			  break;
+		      }
   }
   return ;
 done:
@@ -300,7 +320,6 @@ read (int fd, void *buffer, unsigned size)
 {
     int ret = -1;
     int iteration; 
-    struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
      
@@ -348,8 +367,6 @@ static int
 write (int fd, const void *buffer, unsigned size)
 {
     int ret = -1;
-    int iteration; 
-    struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
         
@@ -463,6 +480,7 @@ get_fd (void)
     return current_fd - 1;
 }
 
+/*
 static struct file* find_file (int fd)
 {
     struct list_elem* el;
@@ -478,6 +496,7 @@ static struct file* find_file (int fd)
 	    return NULL;
     }
 }
+*/
 
 void close_file (struct list_elem* el_)
 {
@@ -486,10 +505,154 @@ void close_file (struct list_elem* el_)
     struct file_fd* f_fd = NULL;
     f_fd = list_entry (el_, struct file_fd, fd_thread);
 
-    int fd = f_fd->fd;
-
     list_remove (&f_fd->fd_elem);
     file_close (f_fd->file);
     free (f_fd);
 }
-   
+
+static mapid_t mmap (int fd, void *addr)
+{
+    if (!is_user_vaddr (addr) || addr == NULL || pg_ofs(addr) != 0 || fd == STDIN_FILENO || fd == STDOUT_FILENO)
+	return -1;
+
+    struct list_elem* el;
+    struct file_fd* f_fd = NULL;
+    size_t file_len, pos_ofs;
+    struct thread *curr = thread_current ();
+    struct file *mmap_file = NULL;
+    void *pos;
+
+    lock_acquire (&file_lock);
+    for (el = list_begin (&curr->open_file) ;  el != list_end (&curr->open_file) ;
+	    el = list_next (el))
+    {
+	f_fd = list_entry (el, struct file_fd, fd_thread);
+	if (f_fd->fd == fd)
+	{
+	    mmap_file = file_reopen (f_fd->file); 
+	    break;
+	}
+
+    }
+    lock_release (&file_lock);
+
+    //no file or file length is zero
+    if (mmap_file == NULL || (file_len = file_length (mmap_file)) <= 0 )
+    {
+	if (!mmap_file)
+	    file_close (mmap_file);
+	return -1;
+    }
+
+    pos = addr;
+    for (pos_ofs = 0; pos_ofs < file_len; ){
+	if (find_page(pos) != NULL){//check if page exist	    
+	    return -1;
+	}
+	if ((file_length - pos_ofs) >= PGSIZE){
+	    pos_ofs += PGSIZE;
+	}
+	else{
+	    pos_ofs += (file_length - pos_ofs);
+	}
+	pos += PGSIZE;
+    }
+
+    thread_current ()->map_id++;
+    off_t ofs = 0;
+
+    while (file_len > 0)
+    {
+	if (file_len > PGSIZE)
+	{
+	    if (!add_mmap_to_page (addr, mmap_file, PGSIZE, 0, ofs))
+	    {
+		munmap (thread_current ()->map_id);
+		return -1;
+	    }
+	    ofs += PGSIZE;
+	    file_len -= PGSIZE;
+    	}
+	else
+	{
+	    if (!add_mmap_to_page (addr, mmap_file, file_len, PGSIZE-file_len, ofs))
+	    {
+		munmap (thread_current ()->map_id);
+		return -1;
+	    }
+	    file_len = 0; 
+	}
+	addr += PGSIZE;
+	//printf ("mmap: %p\n", addr);
+    }
+
+    return thread_current ()->map_id;
+
+    
+}
+
+static void munmap (mapid_t mapid)
+{
+    struct mmap *mp;
+    struct page *pg;
+    struct frame *fr = NULL;
+    struct thread *curr = thread_current ();
+    struct list_elem *el = list_begin (&curr->map_list);
+
+//    for (el = list_begin (&curr->map_list); el != list_end (&curr->map_list); el = list_next (el))
+
+
+    while (el != list_end (&curr->map_list))
+    {
+	mp = list_entry (el, struct mmap, mmap_elem);
+	if (mp->mmap_id == mapid)
+	{
+	    pg = find_page (mp->vaddr);
+	    el = list_remove (&mp->mmap_elem);
+	    if (!pg)
+		continue;
+	    else
+	    {	
+		if (pg->is_loaded)
+		{
+//		    printf ("page is loaded\n");
+		    
+		    fr = find_frame (pg->vaddr); 
+		    if (pagedir_is_dirty (thread_current ()->pagedir, pg->vaddr))
+		    {
+			//printf ("page is dirty\n");
+			lock_acquire (&file_lock);
+			file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
+			lock_release (&file_lock);
+		    }
+		    //printf ("==1==\n");
+		    free_frame (fr);
+
+		    //printf ("==2==\n");
+		    lock_acquire (&curr->page_lock);
+		    list_remove (&pg->page_elem);
+		    lock_release (&curr->page_lock);
+
+		    free (pg);
+		    free (mp);
+		    //printf ("==3==\n");
+		}
+		else
+		{
+		    //printf ("page is not loaded\n");
+		    lock_acquire (&curr->page_lock);
+		    list_remove (&pg->page_elem);
+		    lock_release (&curr->page_lock);
+
+		    free (pg);		   
+		    free (mp); 
+		}
+	    }
+	}
+	else
+	    el = list_next (el);
+
+    }
+   // printf ("munmap done\n");
+}
+

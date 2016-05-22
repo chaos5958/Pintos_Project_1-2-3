@@ -2,8 +2,10 @@
 #define USERPROG_SYSCALL_H
 
 #include <list.h>
-void syscall_init (void);
 
+struct lock file_lock; 
+
+void syscall_init (void);
 void exit_ext (int status);
 void close_file (struct list_elem*);
 
