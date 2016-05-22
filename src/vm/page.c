@@ -193,6 +193,7 @@ bool load_page_file (struct page* pg)
     {
 	//read file from pg->save_addr and write into a frame with physicall address address fr->paddr
 	lock_acquire (&file_lock);
+	//printf ("pg->save_addr: %p, fr->paddr: %p, pg->readbyts: %zu, pg->pfs: %d pg->save_location: %d\n", pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs, pg->save_location);
 	if (file_read_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs) != (int) pg->read_bytes)
 	{
 	    lock_release (&file_lock);

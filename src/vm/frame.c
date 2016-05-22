@@ -11,7 +11,7 @@
 #include "userprog/syscall.h"
 
 static struct list frame_table;
-static struct lock frame_lock;
+//static struct lock frame_lock;
 
 void* dump_frame (struct frame* , bool);
 
@@ -135,6 +135,7 @@ void* evict_frame(void)
  * returns address of new page allocated after eviction*/
 void* dump_frame (struct frame* fr, bool dirty)
 {
+    //printf ("evict frame addr: %p\n", fr->paddr);
     struct page* pg = fr->sup_page;
 
     if ((dirty) || (pg->save_location == IN_SWAP))
@@ -162,18 +163,19 @@ struct frame *find_frame (uint8_t *vaddr)
     struct frame *fr;
     struct list_elem* el;
 
-    lock_acquire (&frame_lock);
+    //lock_acquire (&frame_lock);
     for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next (el))
     {
 	fr = list_entry (el, struct frame, frame_elem);
 	
 	if (fr->vaddr == vaddr)
 	{
-	    lock_release (&frame_lock);
+	    //lock_release (&frame_lock);
 	    return fr;
 	}
     }
-    lock_release (&frame_lock);
+    //lock_release (&frame_lock);
+    printf ("there is no frame\n");
     return NULL;
 }
 
