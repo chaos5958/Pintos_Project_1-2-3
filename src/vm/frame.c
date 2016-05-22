@@ -175,7 +175,7 @@ struct frame *find_frame (uint8_t *vaddr)
 	}
     }
     //lock_release (&frame_lock);
-    printf ("there is no frame\n");
+    //printf ("there is no frame\n");
     return NULL;
 }
 

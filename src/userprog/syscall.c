@@ -593,6 +593,7 @@ static mapid_t mmap (int fd, void *addr)
 
 static void munmap (mapid_t mapid)
 {
+    struct file *mmap_file = NULL; 
     struct mmap *mp;
     struct page *pg;
     struct frame *fr = NULL;
@@ -602,31 +603,46 @@ static void munmap (mapid_t mapid)
 //    for (el = list_begin (&curr->map_list); el != list_end (&curr->map_list); el = list_next (el))
 
 
+    //printf ("munmap is called\n");
     while (el != list_end (&curr->map_list))
     {
 	mp = list_entry (el, struct mmap, mmap_elem);
 	if (mp->mmap_id == mapid)
 	{
 	    pg = find_page (mp->vaddr);
+	    fr = find_frame (pg->vaddr);
+	    //if (fr == 0xc || fr == NULL)
+	//	PANIC ("cannot find frame 1");
 	    el = list_remove (&mp->mmap_elem);
 	    if (!pg)
 		continue;
 	    else
 	    {	
+		mmap_file = (struct file*) pg->save_addr;
+		pg->is_loading = true;
 		if (pg->is_loaded)
 		{
-//		    printf ("page is loaded\n");
-		    
-		    fr = find_frame (pg->vaddr); 
+		    //printf ("page is loaded\n");
+		    //lock_acquire (&frame_lock);
+		    //lock_acquire (&curr->page_lock);
+
+		    fr = find_frame (pg->vaddr);
+		    if (fr == 0xc || fr == NULL)
+		       PANIC ("cannot find frame");	
 		    if (pagedir_is_dirty (thread_current ()->pagedir, pg->vaddr))
 		    {
-			//printf ("page is dirty\n");
+			//printf ("pg->save_addr: %p, fr->paddr: %p, pg->readbyts: %zu, pg->pfs: %d pg->save_location: %d\n", pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs, pg->save_location);
+//printf ("page is dirty\n");
 			lock_acquire (&file_lock);
 			file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
 			lock_release (&file_lock);
 		    }
+
 		    //printf ("==1==\n");
+		    if (fr == 0xc || fr == NULL)
+			PANIC ("wrong frame");
 		    free_frame (fr);
+		    //lock_release (&frame_lock);
 
 		    //printf ("==2==\n");
 		    lock_acquire (&curr->page_lock);
@@ -654,5 +670,23 @@ static void munmap (mapid_t mapid)
 
     }
    // printf ("munmap done\n");
+    file_close (mmap_file);
 }
 
+void thread_munmap (void)
+{
+    //printf ("thread_unmap called, tid: %d\n", thread_current ()->tid);
+    struct mmap *mp;
+    struct thread *curr = thread_current ();
+    struct list_elem *el = list_begin (&curr->map_list);
+    mapid_t mapid = 1;
+
+    //for (mapid = 1 ; mapid <= 1 ; mapid++)
+    //
+    //printf ("curr_mapid: %d, mapid: %d\n", curr->map_id, mapid);
+//	printf ("thread_name: %s thread_tid: %d\n", curr->name, curr->tid);
+
+	munmap (mapid);
+    //}
+    //printf ("thread_unmap end, tid: %d\n", thread_current ()->tid);
+}
