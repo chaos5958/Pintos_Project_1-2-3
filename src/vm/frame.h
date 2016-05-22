@@ -7,6 +7,8 @@
 #include <list.h>
 #include "vm/page.h"
 
+struct lock frame_lock;
+
 struct frame{
     struct thread* user;
     struct page* sup_page;
