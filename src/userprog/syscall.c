@@ -512,18 +512,16 @@ void close_file (struct list_elem* el_)
 
 static mapid_t mmap (int fd, void *addr)
 {
-    if (!is_user_vaddr (addr))
-	return -1;
-
-    if (fd == 0 || fd == 1)
+    if (!is_user_vaddr (addr) || addr == NULL || pg_ofs(addr) != 0 || fd == STDIN_FILENO || fd == STDOUT_FILENO)
 	return -1;
 
     struct list_elem* el;
     struct file_fd* f_fd = NULL;
-    size_t file_len;
+    size_t file_len, pos_ofs;
     struct thread *curr = thread_current ();
-    bool fd_find = false; 
-    
+    struct file *mmap_file = NULL;
+    void *pos;
+
     lock_acquire (&file_lock);
     for (el = list_begin (&curr->open_file) ;  el != list_end (&curr->open_file) ;
 	    el = list_next (el))
@@ -531,7 +529,7 @@ static mapid_t mmap (int fd, void *addr)
 	f_fd = list_entry (el, struct file_fd, fd_thread);
 	if (f_fd->fd == fd)
 	{
-	    fd_find = true;
+	    mmap_file = file_reopen (f_fd->file); 
 	    break;
 	}
 
@@ -539,11 +537,26 @@ static mapid_t mmap (int fd, void *addr)
     lock_release (&file_lock);
 
     //no file or file length is zero
-    if (!fd_find || (file_len = file_length (f_fd->file)) == 0)
+    if (mmap_file == NULL || (file_len = file_length (mmap_file)) <= 0 )
+    {
+	if (!mmap_file)
+	    file_close (mmap_file);
 	return -1;
-    
-    //page is allgned or used by other maapped
-    //**Should Impl**
+    }
+
+    pos = addr;
+    for (pos_ofs = 0; pos_ofs < file_len; ){
+	if (find_page(pos) != NULL){//check if page exist	    
+	    return -1;
+	}
+	if ((file_length - pos_ofs) >= PGSIZE){
+	    pos_ofs += PGSIZE;
+	}
+	else{
+	    pos_ofs += (file_length - pos_ofs);
+	}
+	pos += PGSIZE;
+    }
 
     thread_current ()->map_id++;
     off_t ofs = 0;
@@ -552,7 +565,7 @@ static mapid_t mmap (int fd, void *addr)
     {
 	if (file_len > PGSIZE)
 	{
-	    if (!add_mmap_to_page (addr, f_fd->file, PGSIZE, 0, ofs))
+	    if (!add_mmap_to_page (addr, mmap_file, PGSIZE, 0, ofs))
 	    {
 		munmap (thread_current ()->map_id);
 		return -1;
@@ -562,7 +575,7 @@ static mapid_t mmap (int fd, void *addr)
     	}
 	else
 	{
-	    if (!add_mmap_to_page (addr, f_fd->file, file_len, PGSIZE-file_len, ofs))
+	    if (!add_mmap_to_page (addr, mmap_file, file_len, PGSIZE-file_len, ofs))
 	    {
 		munmap (thread_current ()->map_id);
 		return -1;
@@ -574,6 +587,8 @@ static mapid_t mmap (int fd, void *addr)
     }
 
     return thread_current ()->map_id;
+
+    
 }
 
 static void munmap (mapid_t mapid)
