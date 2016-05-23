@@ -54,13 +54,29 @@ struct frame* alloc_frame (uint8_t* uaddr)
 }
 
 /*frees frma fr*/
-void free_frame (struct frame* fr)
+void free_frame (void *paddr)
 {
+    struct frame *fr;
+    struct list_elem* el;
+
+    lock_acquire (&frame_lock);
+    for (el = list_begin (&frame_table); el != list_end (&frame_table); el = list_next (el))
+    {
+	fr = list_entry (el, struct frame, frame_elem);
+	
+	if (fr->paddr == paddr)
+	{
+	    break;
+	}
+    }
+
     list_remove (&fr->frame_elem); 
     palloc_free_page (fr->paddr);
     pagedir_clear_page (fr->user->pagedir, fr->vaddr);
     free (fr);
+    lock_release (&frame_lock);
 }
+
 
 /*team10: releases all frames owned by current thread*/
 void free_frame_thread (void)
@@ -142,18 +158,23 @@ void* dump_frame (struct frame* fr, bool dirty)
     {
 	if (pg->save_location == IN_MMAP)
 	{
+	    //printf ("evict to mmap\n");
 	    lock_acquire (&file_lock);
 	    file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
 	    lock_release (&file_lock);
 	}
 	else
 	{
+	    //printf ("evict to swap\n");
 	    pg->save_location = IN_SWAP;
 	    pg->page_idx = swap_write(fr->paddr);
 	}
     }
     pg->is_loaded = false;
-    free_frame (fr);
+    list_remove (&fr->frame_elem);
+    palloc_free_page (fr->paddr);
+    pagedir_clear_page (fr->user->pagedir, fr->vaddr);
+    free (fr);
 
     return palloc_get_page (PAL_USER);
 }
@@ -177,6 +198,6 @@ struct frame *find_frame (uint8_t *vaddr)
     //lock_release (&frame_lock);
     //printf ("there is no frame\n");
     return NULL;
-}
+ }
 
 

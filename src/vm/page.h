@@ -46,7 +46,7 @@ struct page{
 
 struct mmap{
     mapid_t mmap_id;
-    uint8_t* vaddr;
+    struct page *sup_page;
 
     struct list_elem mmap_elem;
 };
