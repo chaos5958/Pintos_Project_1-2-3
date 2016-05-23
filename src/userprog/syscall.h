@@ -3,6 +3,8 @@
 
 #include <list.h>
 
+#define CLOSE_ALL -1
+
 struct lock file_lock; 
 
 void syscall_init (void);

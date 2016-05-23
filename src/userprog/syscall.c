@@ -510,6 +510,15 @@ void close_file (struct list_elem* el_)
     free (f_fd);
 }
 
+//function: mmap
+//parameter
+//- fd: fild decriptor of the file to map into the main memory
+//- addr: virtual address of the mapped memory
+//return value
+//- mapid_t: mapping id 
+//purpose & functionality
+//- map the file into the main memory creating and adding to the supplementary page table 
+//- load it lazly when it is needed
 static mapid_t mmap (int fd, void *addr)
 {
     if (!is_user_vaddr (addr) || addr == NULL || pg_ofs(addr) != 0 || fd == STDIN_FILENO || fd == STDOUT_FILENO)
@@ -522,6 +531,8 @@ static mapid_t mmap (int fd, void *addr)
     struct file *mmap_file = NULL;
     void *pos;
 
+    // if thre file is already opened, reopen it
+    // else open it 
     lock_acquire (&file_lock);
     for (el = list_begin (&curr->open_file) ;  el != list_end (&curr->open_file) ;
 	    el = list_next (el))
@@ -533,10 +544,10 @@ static mapid_t mmap (int fd, void *addr)
 	    break;
 	}
 
-    }
+   }
     lock_release (&file_lock);
 
-    //no file or file length is zero
+    // no file or file length is zero
     if (mmap_file == NULL || (file_len = file_length (mmap_file)) <= 0 )
     {
 	if (!mmap_file)
@@ -544,23 +555,26 @@ static mapid_t mmap (int fd, void *addr)
 	return -1;
     }
 
+    // check mmaped region is already occupied 
     pos = addr;
     for (pos_ofs = 0; pos_ofs < file_len; ){
-	if (find_page(pos) != NULL){//check if page exist	    
+	if (find_page(pos) != NULL){
 	    return -1;
 	}
-	if ((file_length - pos_ofs) >= PGSIZE){
+	if ((file_len - pos_ofs) >= PGSIZE){
 	    pos_ofs += PGSIZE;
 	}
 	else{
-	    pos_ofs += (file_length - pos_ofs);
+	    pos_ofs += (file_len - pos_ofs);
 	}
 	pos += PGSIZE;
     }
 
+    // increase mapping id of the current thread
     thread_current ()->map_id++;
     off_t ofs = 0;
 
+    // add all file into the supplmentary page table 
     while (file_len > 0)
     {
 	if (file_len > PGSIZE)
@@ -583,86 +597,51 @@ static mapid_t mmap (int fd, void *addr)
 	    file_len = 0; 
 	}
 	addr += PGSIZE;
-	//printf ("mmap: %p\n", addr);
     }
 
+    // return mapping id 
     return thread_current ()->map_id;
-
-
 }
 
+//function: munmap 
+//parameter
+//- mapid: mapping id of the file which will be unmmaped
+//purpose & functionality
+//- unmap all mapped region of the file 
 static void munmap (mapid_t mapid)
 {
     struct file *mmap_file = NULL; 
     struct mmap *mp;
-    struct page *pg;
-    struct frame *fr = NULL;
     struct thread *curr = thread_current ();
     struct list_elem *el = list_begin (&curr->map_list);
 
-    //printf ("mapid : %d\n", mapid);
-    //printf ("munmap is called\n");
-    //lock_acquire (&frame_lock);
     while (el != list_end (&curr->map_list))
     {
-	//printf ("thread tid: %d mmap_list: %zu\n", thread_current ()->tid, list_size (&curr->map_list));
 	mp = list_entry (el, struct mmap, mmap_elem);
-	if (mp->mmap_id == mapid)
+	if (mp->mmap_id == mapid || mapid == CLOSE_ALL)
 	{
+	    //pin the page so that should not be evcited
 	    el = list_remove (&mp->mmap_elem);
 	    mp->sup_page->is_loading = true;
 	    mmap_file = mp->sup_page->save_addr;
 
 	    if (mp->sup_page->is_loaded)
 	    {
-		//printf ("page is loaded\n");
-
-		//lock_acquire (&frame_lock);
-		//fr = find_frame (pg->vaddr);
-		//lock_release (&frame_lock);
-
+		//write back to the original file
 		if (pagedir_is_dirty (curr->pagedir, mp->sup_page->vaddr))
 		{
-		    //printf ("pg->save_addr: %p, fr->paddr: %p, pg->readbyts: %zu, pg->pfs: %d pg->save_location: %d\n", pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs, pg->save_location);
-		    //printf ("page is dirty\n");
 		    lock_acquire (&file_lock);
-		    //file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
 		    file_write_at (mp->sup_page->save_addr, mp->sup_page->vaddr, mp->sup_page->read_bytes, mp->sup_page->ofs);
 		    lock_release (&file_lock);
 		}
 
-		//printf ("==1==\n");
-		//if (fr == 0xc || fr == NULL)
-		//    PANIC ("wrong frame");
-			
-		//lock_acquire (&frme success
-		//ame_lock);
+		//free the frame, page and mmap  
 		free_frame (pagedir_get_page (curr->pagedir, mp->sup_page->vaddr));
-		//printf ("free frame success\n");
 		pagedir_clear_page (curr->pagedir, mp->sup_page->vaddr);
-		//lock_release (&frame_lock);
-		
-		//printf ("==2==\n");
-		//lock_acquire (&curr->page_lock);
-		//list_remove (&pg->page_elem);
-		//lock_release (&curr->page_lock);
 
-		//free (pg);
 		free (mp->sup_page);
 		free (mp);
-		//printf ("==3==\n");
 		
-	    }
-	    else
-	    {
-		
-		//printf ("page is not loaded\n");
-		//lock_acquire (&curr->page_lock);
-		//list_remove (&pg->page_elem);
-		//lock_release (&curr->page_lock);
-
-		//free (pg);		   
-		free (mp); 
 	    }
 
 	}
@@ -670,23 +649,14 @@ static void munmap (mapid_t mapid)
 	{
 	    el = list_next (el);
 	}
-
-
     }
-    // printf ("munmap done\n");
-    //lock_release (&frame_lock);
     file_close (mmap_file);
 }
 
+//func: thread_munmap
+//purpose & functionality
+//- unmap all maps which current thread holds
 void thread_munmap (void)
 {
-    //printf ("thread_unmap called, tid: %d\n", thread_current ()->tid);
-    struct mmap *mp;
-    struct thread *curr = thread_current ();
-    struct list_elem *el = list_begin (&curr->map_list);
-    mapid_t mapid;
-    //printf ("thread %d mmap_list: %zu\n", curr->tid, list_size (&curr->map_list));
-    for (mapid = 1 ; mapid <= curr->map_id ; mapid++)
-	munmap (mapid);
-//	printf ("thread_name: %s thread_tid: %d\n", curr->name, curr->tid);
+    munmap (CLOSE_ALL);
 }

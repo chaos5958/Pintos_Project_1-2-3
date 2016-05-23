@@ -222,10 +222,6 @@ process_exit (void)
   enum intr_level old_level;
   int i;
 
-  //sema_up (&curr->wait);
-  //for (i = 0; i < list_size (&curr->wait.waiters); i++)
-  //    sema_up (&curr->wait);
-
   thread_munmap ();
   free_frame_thread ();
   file_close (curr->execute_file);//close the executable of this process
@@ -234,12 +230,6 @@ process_exit (void)
   sema_up (&curr->wait);
   for (i = 0; i < list_size (&curr->wait.waiters); i++)
       sema_up (&curr->wait);
-
-  /*
-  free_frame_thread ();
-  file_close (curr->execute_file);//close the executable of this process
-  curr->execute_file = NULL;
-  */
 
   while (!list_empty (&curr->open_file))
   {
