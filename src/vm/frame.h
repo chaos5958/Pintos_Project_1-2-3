@@ -21,7 +21,7 @@ struct frame{
 
 void frame_init (void);
 struct frame* alloc_frame (uint8_t*);
-void free_frame (struct frame*);
+void free_frame (void*);
 void free_frame_thread (void);
 void* evict_frame(void);
 struct frame* find_frame (uint8_t *vaddr);

@@ -99,7 +99,7 @@ bool add_mmap_to_page (uint8_t* vaddr_, void* save_addr_, uint32_t read_bytes_, 
     }
 
     mp->mmap_id = thread_current ()->map_id;
-    mp->vaddr = vaddr_;
+    mp->sup_page = pg;
 
     lock_acquire (&curr->page_lock); 
     list_push_back (&curr->page_table, &pg->page_elem);
@@ -178,8 +178,11 @@ bool load_page_file (struct page* pg)
 {
 
     struct frame* fr = alloc_frame (pg->vaddr);
-    fr->sup_page = pg;
- 
+    fr->sup_page = pg; 
+
+    //if (pg->save_location == IN_MMAP)
+//	printf ("mmap is located in %p\n", fr->paddr);
+
     if (fr == NULL)
     {
 	free_frame (fr);

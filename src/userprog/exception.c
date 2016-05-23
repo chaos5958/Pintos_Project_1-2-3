@@ -154,7 +154,7 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
   
   //check if the fault addr is in valid user address space and is not_present case
-  //printf ("fault addr: %p\n", fault_addr);
+  //printf ("fault addr: %p tid: %d\n", fault_addr, thread_current ()->tid);
   
   if (not_present && (fault_addr > USER_VADDR_BOTTOM) && (fault_addr < PHYS_BASE))
   {
@@ -201,8 +201,11 @@ page_fault (struct intr_frame *f)
 			  exit_ext (-1);
 		      //printf ("==3==\n");
 		  }
-		  else 
+		  else {
+		      //printf ("thread tid: %d\n", thread_current ()->tid);
 		      exit_ext (-1);
+		  }
+
 	  }
   }
   else 

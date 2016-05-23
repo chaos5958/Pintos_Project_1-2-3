@@ -55,186 +55,186 @@ static void munmap (mapid_t mapid);
 static int get_fd (void);
 
 
-void
+    void
 syscall_init (void) 
 {
-  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  list_init (&file_list);
-  lock_init (&file_lock);
+    intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+    list_init (&file_list);
+    lock_init (&file_lock);
 }
 
-static void
+    static void
 syscall_handler (struct intr_frame *f) 
 {
-  int *ptr = f->esp; 
+    int *ptr = f->esp; 
 
-  if (!is_user_vaddr (ptr))  
-      goto done;
-  
-  if (!pagedir_get_page (thread_current ()->pagedir, ptr))
-      goto done;
+    if (!is_user_vaddr (ptr))  
+	goto done;
 
-  if (*ptr < SYS_HALT || *ptr > SYS_INUMBER)
-      goto done;
+    if (!pagedir_get_page (thread_current ()->pagedir, ptr))
+	goto done;
 
-  switch (*ptr)
+    if (*ptr < SYS_HALT || *ptr > SYS_INUMBER)
+	goto done;
 
-  {
-      case SYS_HALT: halt();
-		     break;
-      case SYS_EXIT: if (!is_user_vaddr (ptr + 1))
-    			 goto done;
-		     else{
-		     exit (*(ptr + 1));
-		     break;
-     		     }
+    switch (*ptr)
 
-      case SYS_EXEC: if (!is_user_vaddr (ptr + 1))
-			 goto done;
-		     else{
-			 pid_t ret = exec (*(ptr + 1));
-			 f->eax = ret;
-			 break;
-		     }
-
-      case SYS_WAIT: if (!is_user_vaddr (ptr + 1))
-			 goto done;
-		     else{
-			 int ret = wait (*(ptr + 1));
-			 f->eax = ret;
-			 break;
-		     }
-
-      case SYS_CREATE: if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2))
+    {
+	case SYS_HALT: halt();
+		       break;
+	case SYS_EXIT: if (!is_user_vaddr (ptr + 1))
 			   goto done;
 		       else{
-			   bool ret = create (*(ptr + 1), *(ptr + 2));
-			   f->eax = ret;
-		           break;
+			   exit (*(ptr + 1));
+			   break;
 		       }
 
-      case SYS_REMOVE: if (!is_user_vaddr (ptr + 1))
-		           goto done;
+	case SYS_EXEC: if (!is_user_vaddr (ptr + 1))
+			   goto done;
 		       else{
-			   bool ret = remove (*(ptr + 1));
+			   pid_t ret = exec (*(ptr + 1));
 			   f->eax = ret;
 			   break;
 		       }
 
-      case SYS_OPEN: if (!is_user_vaddr (ptr + 1))
-			 goto done;
-		     else{
-			 int ret = open (*(ptr + 1));
-			 f->eax = ret;
-			 break;
-		     }
+	case SYS_WAIT: if (!is_user_vaddr (ptr + 1))
+			   goto done;
+		       else{
+			   int ret = wait (*(ptr + 1));
+			   f->eax = ret;
+			   break;
+		       }
 
-      case SYS_FILESIZE: if (!is_user_vaddr (ptr + 1))
+	case SYS_CREATE: if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2))
 			     goto done;
 			 else{
-			     int ret = filesize (*(ptr + 1));
+			     bool ret = create (*(ptr + 1), *(ptr + 2));
 			     f->eax = ret;
 			     break;
 			 }
 
-      case SYS_READ:  if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
-			     || !is_user_vaddr (ptr + 3))
-			 goto done;
-		     else{
-			 int ret = read (*(ptr + 1), *(ptr + 2), *(ptr + 3));
-			 f->eax = ret;
-			 break;
-		     }
+	case SYS_REMOVE: if (!is_user_vaddr (ptr + 1))
+			     goto done;
+			 else{
+			     bool ret = remove (*(ptr + 1));
+			     f->eax = ret;
+			     break;
+			 }
 
-      case SYS_WRITE:  
-		       if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
-			      || !is_user_vaddr (ptr + 3))
- 			   goto done;		        
-		      else{
-			  int ret = write (*(ptr + 1), *(ptr + 2), *(ptr + 3));
-			  f->eax = ret;
-			  break;
-		      }
+	case SYS_OPEN: if (!is_user_vaddr (ptr + 1))
+			   goto done;
+		       else{
+			   int ret = open (*(ptr + 1));
+			   f->eax = ret;
+			   break;
+		       }
 
-      case SYS_SEEK: if(!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2))
-			 goto done;
-		     else{
-			 seek (*(ptr + 1), *(ptr + 2));
-			 break;
-		     }
+	case SYS_FILESIZE: if (!is_user_vaddr (ptr + 1))
+			       goto done;
+			   else{
+			       int ret = filesize (*(ptr + 1));
+			       f->eax = ret;
+			       break;
+			   }
 
-      case SYS_TELL: if(!is_user_vaddr (ptr + 1))
-			 goto done;
-		     else{
-			 unsigned ret = tell (*(ptr + 1));
-			 f->eax = ret;
-			 break;
-		     }
+	case SYS_READ:  if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
+				|| !is_user_vaddr (ptr + 3))
+			    goto done;
+			else{
+			    int ret = read (*(ptr + 1), *(ptr + 2), *(ptr + 3));
+			    f->eax = ret;
+			    break;
+			}
 
-      case SYS_CLOSE: if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2))
-			  goto done;
-		      else{
-			  close (*(ptr + 1));
-			  break;
-		      }
-      case SYS_MMAP: if (!is_user_vaddr (ptr + 1))
-			 goto done;
-		     {
-			 mapid_t ret = mmap (*(ptr + 1), *(ptr + 2));
-			 f->eax = ret;
-			 break;
-		     }
-      case SYS_MUNMAP: if (!is_user_vaddr (ptr + 1))
-			  goto done;
-		      else {
-			  munmap (*(ptr + 1));
-			  break;
-		      }
-  }
-  return ;
+	case SYS_WRITE:  
+			if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
+				|| !is_user_vaddr (ptr + 3))
+			    goto done;		        
+			else{
+			    int ret = write (*(ptr + 1), *(ptr + 2), *(ptr + 3));
+			    f->eax = ret;
+			    break;
+			}
+
+	case SYS_SEEK: if(!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2))
+			   goto done;
+		       else{
+			   seek (*(ptr + 1), *(ptr + 2));
+			   break;
+		       }
+
+	case SYS_TELL: if(!is_user_vaddr (ptr + 1))
+			   goto done;
+		       else{
+			   unsigned ret = tell (*(ptr + 1));
+			   f->eax = ret;
+			   break;
+		       }
+
+	case SYS_CLOSE: if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2))
+			    goto done;
+			else{
+			    close (*(ptr + 1));
+			    break;
+			}
+	case SYS_MMAP: if (!is_user_vaddr (ptr + 1))
+			   goto done;
+		       {
+			   mapid_t ret = mmap (*(ptr + 1), *(ptr + 2));
+			   f->eax = ret;
+			   break;
+		       }
+	case SYS_MUNMAP: if (!is_user_vaddr (ptr + 1))
+			     goto done;
+			 else {
+			     munmap (*(ptr + 1));
+			     break;
+			 }
+    }
+    return ;
 done:
-  exit (-1);
+    exit (-1);
 }
 
-static void
+    static void
 halt (void) 
 {
     power_off();
 }
 
-void
+    void
 exit_ext (int status)
 { 
     struct thread* t = thread_current();
     //if parent waits(exists)
     if (t->parent != NULL){
-    //give status to parent
-      t->parent->ret_valid = true;
+	//give status to parent
+	t->parent->ret_valid = true;
     }
     t->ret_status = status;
     thread_exit();
 }
 
-static void
+    static void
 exit (int status)
 { 
     struct thread* t = thread_current();
     //if parent waits(exists) ret_valid is true.
     if (t->parent != NULL){
-      t->parent->ret_valid = true;
+	t->parent->ret_valid = true;
     }
     t->ret_status = status;
     thread_exit();
 }
-static pid_t
+    static pid_t
 exec (const char *file)
 {
     tid_t tid;
 
     if (file == NULL || !is_user_vaddr (file)||!pagedir_get_page (thread_current ()->pagedir, file))
 	exit (-1);
-	   // || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
-      	//exit(-1);
+    // || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
+    //exit(-1);
     lock_acquire (&file_lock);
     tid = process_execute (file);    
     lock_release (&file_lock);
@@ -242,32 +242,32 @@ exec (const char *file)
     return (pid_t) tid;
 }
 
-static int
+    static int
 wait (pid_t pid)
 {
     return process_wait ((tid_t)pid);
 }
 
-static bool
+    static bool
 create (const char *file, unsigned initial_size)
 {
-      if(file == NULL ||!is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))  
+    if(file == NULL ||!is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))  
 	exit (-1);
-    
+
 
     return filesys_create (file, initial_size);
 }
 
-static bool
+    static bool
 remove (const char *file)
 {
     if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
-        exit(-1);
+	exit(-1);
 
     return filesys_remove (file);
 }
 
-static int
+    static int
 open (const char *file)
 {
     int ret = -1; 
@@ -290,11 +290,11 @@ open (const char *file)
     ret = fd_->fd; 
 
 done:
-   return ret;
+    return ret;
 
 }
 
-static int
+    static int
 filesize (int fd) 
 {
     int ret = -1;
@@ -302,29 +302,29 @@ filesize (int fd)
     struct list_elem* el;
 
     for (el = list_begin (&file_list); el != list_end (&file_list);
-	   el = list_next (el))
-    	{
-	    file_fd = list_entry (el, struct file_fd, fd_elem);
-    	    if (file_fd->fd == fd && file_fd->file != NULL)
-	    {
-            	ret = file_length (file_fd->file);
-	    }
+	    el = list_next (el))
+    {
+	file_fd = list_entry (el, struct file_fd, fd_elem);
+	if (file_fd->fd == fd && file_fd->file != NULL)
+	{
+	    ret = file_length (file_fd->file);
+	}
 
-       }
+    }
 
     return ret;
 }
 
-static int
+    static int
 read (int fd, void *buffer, unsigned size)
 {
     int ret = -1;
     int iteration; 
     struct file_fd* file_fd; 
     struct list_elem* el;
-     
+
     if (buffer == NULL || !is_user_vaddr (buffer + size)) 
-  //|| !pagedir_get_page (thread_current ()->pagedir, buffer + size))  
+	//|| !pagedir_get_page (thread_current ()->pagedir, buffer + size))  
 	exit (-1);
 
 
@@ -333,9 +333,9 @@ read (int fd, void *buffer, unsigned size)
     {
 	for (iteration = 0; iteration < size; iteration++)
 	{
-	   ((uint8_t *) buffer)[iteration] = input_getc();
+	    ((uint8_t *) buffer)[iteration] = input_getc();
 	}
-       	ret = size; 	
+	ret = size; 	
 	goto done;
     }
 
@@ -344,17 +344,17 @@ read (int fd, void *buffer, unsigned size)
 
     else
     {
-       	for (el = list_begin (&file_list); el != list_end (&file_list);
-	   el = list_next (el))
-    	{
+	for (el = list_begin (&file_list); el != list_end (&file_list);
+		el = list_next (el))
+	{
 	    file_fd  = list_entry (el, struct file_fd, fd_elem);
-    	    if (file_fd->fd == fd && file_fd->file != NULL)
+	    if (file_fd->fd == fd && file_fd->file != NULL)
 	    {
-            	ret = file_read (file_fd->file, buffer, size);
+		ret = file_read (file_fd->file, buffer, size);
 		goto done;
 	    }
 
-        }
+	}
     }
 
 
@@ -363,16 +363,16 @@ done:
     return ret;
 }
 
-static int
+    static int
 write (int fd, const void *buffer, unsigned size)
 {
     int ret = -1;
     struct file_fd* file_fd; 
     struct list_elem* el;
-        
+
     if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size))
 	exit (-1);
-   
+
 
     if (fd == 1) {
 	putbuf (buffer, size);
@@ -388,21 +388,21 @@ write (int fd, const void *buffer, unsigned size)
 	putbuf (buffer, size);
 	ret = size;
     }
-    
+
     else{
 
-       	for (el = list_begin (&file_list); el != list_end (&file_list);
-	   el = list_next (el))
-    	{
+	for (el = list_begin (&file_list); el != list_end (&file_list);
+		el = list_next (el))
+	{
 	    file_fd  = list_entry (el, struct file_fd, fd_elem);
-    	    if (file_fd->fd == fd && file_fd->file != NULL)
+	    if (file_fd->fd == fd && file_fd->file != NULL)
 	    {
-            	ret = file_write (file_fd->file, buffer, size);
+		ret = file_write (file_fd->file, buffer, size);
 		goto done;
 	    }
 
-       }
-		
+	}
+
     }
 
 done:
@@ -410,50 +410,50 @@ done:
     return ret;
 }
 
-static void
+    static void
 seek (int fd, unsigned position) 
 {
-  struct file* file;
-  struct file_fd* file_fd;
-  struct list_elem* el; 
+    struct file* file;
+    struct file_fd* file_fd;
+    struct list_elem* el; 
 
-  for (el = list_begin (&file_list); el != list_end (&file_list);
-	   el = list_next (el))
-    	{
-	    file_fd  = list_entry (el, struct file_fd, fd_elem);
-    	    if (file_fd->fd == fd && file_fd->file != NULL)
-	    {
-            	file = file_fd->file;
-		file_seek (file, position);
-		return ;
-	    }
-       }
+    for (el = list_begin (&file_list); el != list_end (&file_list);
+	    el = list_next (el))
+    {
+	file_fd  = list_entry (el, struct file_fd, fd_elem);
+	if (file_fd->fd == fd && file_fd->file != NULL)
+	{
+	    file = file_fd->file;
+	    file_seek (file, position);
+	    return ;
+	}
+    }
 }
 
-static unsigned
+    static unsigned
 tell (int fd) 
 {
     struct file_fd* f_fd;
     struct list_elem* el;
 
     for (el = list_begin (&file_list); el != list_end (&file_list);
-         el = list_next (el)){
-        f_fd = list_entry (el, struct file_fd, fd_elem);
-        if (f_fd->fd == fd && f_fd->file != NULL){
+	    el = list_next (el)){
+	f_fd = list_entry (el, struct file_fd, fd_elem);
+	if (f_fd->fd == fd && f_fd->file != NULL){
 	    return file_tell (f_fd->file);
-        }
+	}
     } 
 }
 
-static void
+    static void
 close (int fd)
 {
     struct file_fd* fd_ = NULL;
     struct thread* curr = thread_current();
     struct list_elem* el;
-    
+
     for (el = list_begin (&curr->open_file) ;  el != list_end (&curr->open_file) ;
-	     el = list_next (el))
+	    el = list_next (el))
     {
 	fd_ = list_entry (el, struct file_fd, fd_thread);
 	if (fd_->fd == fd) 
@@ -472,7 +472,7 @@ close (int fd)
 
 }
 
-static int
+    static int
 get_fd (void)
 {
     static int current_fd = 2; 
@@ -481,27 +481,27 @@ get_fd (void)
 }
 
 /*
-static struct file* find_file (int fd)
-{
-    struct list_elem* el;
-    struct thread* curr = thread_current ();
-    struct file_fd* f_fd; 
-    for (el = list_begin (&file_list);  el != list_end (&file_list);
-	 el = list_next (el))
-    {
-	f_fd = list_entry (el, struct file_fd, fd_elem);
-	if (f_fd->fd == fd)
-	    return f_fd->file;
-	else
-	    return NULL;
-    }
-}
-*/
+   static struct file* find_file (int fd)
+   {
+   struct list_elem* el;
+   struct thread* curr = thread_current ();
+   struct file_fd* f_fd; 
+   for (el = list_begin (&file_list);  el != list_end (&file_list);
+   el = list_next (el))
+   {
+   f_fd = list_entry (el, struct file_fd, fd_elem);
+   if (f_fd->fd == fd)
+   return f_fd->file;
+   else
+   return NULL;
+   }
+   }
+   */
 
 void close_file (struct list_elem* el_)
 {
     ASSERT (el_ != NULL);
-     
+
     struct file_fd* f_fd = NULL;
     f_fd = list_entry (el_, struct file_fd, fd_thread);
 
@@ -572,7 +572,7 @@ static mapid_t mmap (int fd, void *addr)
 	    }
 	    ofs += PGSIZE;
 	    file_len -= PGSIZE;
-    	}
+	}
 	else
 	{
 	    if (!add_mmap_to_page (addr, mmap_file, file_len, PGSIZE-file_len, ofs))
@@ -588,7 +588,7 @@ static mapid_t mmap (int fd, void *addr)
 
     return thread_current ()->map_id;
 
-    
+
 }
 
 static void munmap (mapid_t mapid)
@@ -600,76 +600,81 @@ static void munmap (mapid_t mapid)
     struct thread *curr = thread_current ();
     struct list_elem *el = list_begin (&curr->map_list);
 
-//    for (el = list_begin (&curr->map_list); el != list_end (&curr->map_list); el = list_next (el))
-
-
+    //printf ("mapid : %d\n", mapid);
     //printf ("munmap is called\n");
+    //lock_acquire (&frame_lock);
     while (el != list_end (&curr->map_list))
     {
+	//printf ("thread tid: %d mmap_list: %zu\n", thread_current ()->tid, list_size (&curr->map_list));
 	mp = list_entry (el, struct mmap, mmap_elem);
 	if (mp->mmap_id == mapid)
 	{
-	    pg = find_page (mp->vaddr);
-	    fr = find_frame (pg->vaddr);
-	    //if (fr == 0xc || fr == NULL)
-	//	PANIC ("cannot find frame 1");
 	    el = list_remove (&mp->mmap_elem);
-	    if (!pg)
-		continue;
-	    else
-	    {	
-		mmap_file = (struct file*) pg->save_addr;
-		pg->is_loading = true;
-		if (pg->is_loaded)
+	    mp->sup_page->is_loading = true;
+	    mmap_file = mp->sup_page->save_addr;
+
+	    if (mp->sup_page->is_loaded)
+	    {
+		//printf ("page is loaded\n");
+
+		//lock_acquire (&frame_lock);
+		//fr = find_frame (pg->vaddr);
+		//lock_release (&frame_lock);
+
+		if (pagedir_is_dirty (curr->pagedir, mp->sup_page->vaddr))
 		{
-		    //printf ("page is loaded\n");
-		    //lock_acquire (&frame_lock);
-		    //lock_acquire (&curr->page_lock);
-
-		    fr = find_frame (pg->vaddr);
-		    if (fr == 0xc || fr == NULL)
-		       PANIC ("cannot find frame");	
-		    if (pagedir_is_dirty (thread_current ()->pagedir, pg->vaddr))
-		    {
-			//printf ("pg->save_addr: %p, fr->paddr: %p, pg->readbyts: %zu, pg->pfs: %d pg->save_location: %d\n", pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs, pg->save_location);
-//printf ("page is dirty\n");
-			lock_acquire (&file_lock);
-			file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
-			lock_release (&file_lock);
-		    }
-
-		    //printf ("==1==\n");
-		    if (fr == 0xc || fr == NULL)
-			PANIC ("wrong frame");
-		    free_frame (fr);
-		    //lock_release (&frame_lock);
-
-		    //printf ("==2==\n");
-		    lock_acquire (&curr->page_lock);
-		    list_remove (&pg->page_elem);
-		    lock_release (&curr->page_lock);
-
-		    free (pg);
-		    free (mp);
-		    //printf ("==3==\n");
+		    //printf ("pg->save_addr: %p, fr->paddr: %p, pg->readbyts: %zu, pg->pfs: %d pg->save_location: %d\n", pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs, pg->save_location);
+		    //printf ("page is dirty\n");
+		    lock_acquire (&file_lock);
+		    //file_write_at (pg->save_addr, fr->paddr, pg->read_bytes, pg->ofs);
+		    file_write_at (mp->sup_page->save_addr, mp->sup_page->vaddr, mp->sup_page->read_bytes, mp->sup_page->ofs);
+		    lock_release (&file_lock);
 		}
-		else
-		{
-		    //printf ("page is not loaded\n");
-		    lock_acquire (&curr->page_lock);
-		    list_remove (&pg->page_elem);
-		    lock_release (&curr->page_lock);
 
-		    free (pg);		   
-		    free (mp); 
-		}
+		//printf ("==1==\n");
+		//if (fr == 0xc || fr == NULL)
+		//    PANIC ("wrong frame");
+			
+		//lock_acquire (&frme success
+		//ame_lock);
+		free_frame (pagedir_get_page (curr->pagedir, mp->sup_page->vaddr));
+		//printf ("free frame success\n");
+		pagedir_clear_page (curr->pagedir, mp->sup_page->vaddr);
+		//lock_release (&frame_lock);
+		
+		//printf ("==2==\n");
+		//lock_acquire (&curr->page_lock);
+		//list_remove (&pg->page_elem);
+		//lock_release (&curr->page_lock);
+
+		//free (pg);
+		free (mp->sup_page);
+		free (mp);
+		//printf ("==3==\n");
+		
 	    }
+	    else
+	    {
+		
+		//printf ("page is not loaded\n");
+		//lock_acquire (&curr->page_lock);
+		//list_remove (&pg->page_elem);
+		//lock_release (&curr->page_lock);
+
+		//free (pg);		   
+		free (mp); 
+	    }
+
 	}
 	else
+	{
 	    el = list_next (el);
+	}
+
 
     }
-   // printf ("munmap done\n");
+    // printf ("munmap done\n");
+    //lock_release (&frame_lock);
     file_close (mmap_file);
 }
 
@@ -679,14 +684,9 @@ void thread_munmap (void)
     struct mmap *mp;
     struct thread *curr = thread_current ();
     struct list_elem *el = list_begin (&curr->map_list);
-    mapid_t mapid = 1;
-
-    //for (mapid = 1 ; mapid <= 1 ; mapid++)
-    //
-    //printf ("curr_mapid: %d, mapid: %d\n", curr->map_id, mapid);
-//	printf ("thread_name: %s thread_tid: %d\n", curr->name, curr->tid);
-
+    mapid_t mapid;
+    //printf ("thread %d mmap_list: %zu\n", curr->tid, list_size (&curr->map_list));
+    for (mapid = 1 ; mapid <= curr->map_id ; mapid++)
 	munmap (mapid);
-    //}
-    //printf ("thread_unmap end, tid: %d\n", thread_current ()->tid);
+//	printf ("thread_name: %s thread_tid: %d\n", curr->name, curr->tid);
 }
