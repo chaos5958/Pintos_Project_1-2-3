@@ -74,6 +74,11 @@ bool add_file_to_page (uint8_t* vaddr_, void* save_addr_, bool is_writable_, uin
     return true;
 }
 
+//function: add_mmap_to_page
+//create a new supplementary page for mmaped memory
+//1. create a mmap sup. page
+//2. fill page informations
+//3. create mmap structure and add to list
 bool add_mmap_to_page (uint8_t* vaddr_, void* save_addr_, uint32_t read_bytes_, uint32_t zero_bytes_, off_t ofs_)
 {
     //create mmap sup-page
